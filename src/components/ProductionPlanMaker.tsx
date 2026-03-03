@@ -16,7 +16,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { GoogleGenAI, Type } from "@google/genai";
+import OpenAI from "openai";
 import ReactMarkdown from "react-markdown";
 
 // Modular Imports
@@ -35,9 +35,149 @@ import ChatHistorySidebar, {
   generateSessionTitle,
 } from "./chat/ChatHistorySidebar";
 
-const ai = new GoogleGenAI({
-  apiKey: import.meta.env.VITE_GEMINI_API_KEY || "",
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: import.meta.env.VITE_OPENROUTER_API_KEY || "",
+  dangerouslyAllowBrowser: true, // Required for client-side API calls
+  defaultHeaders: {
+    "HTTP-Referer": window.location.origin, // Required by OpenRouter
+    "X-Title": "Production Plan Agent", // Required by OpenRouter
+  }
 });
+
+const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant. 
+          Your goal is to collect the following information from the user to generate an Excel production plan:
+          1. Project Name
+          2. Overall Goal (numeric value)
+          3. Unit of measurement (e.g., units, hours, revenue)
+          4. Start Date (YYYY-MM-DD)
+          5. End Date (YYYY-MM-DD)
+          6. List of Resources/Teams
+          
+          CURRENT DATE CONTEXT: Today's date is ${new Date().toLocaleDateString('en-CA')}. If the user uses relative dates like "today", "tomorrow", "yesterday", "next Monday", or "in 2 weeks", you MUST calculate and use the exact YYYY-MM-DD based on this current date.
+
+          PROJECT TIMELINE RULE:
+          - A "Month" is strictly and explicitly defined as exactly 4 Weeks (28 days).
+          - Do NOT use calendar weeks or calendar months.
+          - Calculate weeks strictly from the start date: days 1-7 are "Week 1", days 8-14 are "Week 2", etc. (NEVER start from Week 0).
+          - Use the exact formatting "Week X" in your tables and generated Excel structures. Always start counting from 1.
+          
+          The user may also provide 'actual' production data points (Date, Name, Actual value) directly in the chat or via file upload.
+          If they provide it in text, extract it into the 'actualData' parameter.
+          
+          DYNAMIC SCHEMA ANALYSIS:
+          Based on the project type and unit, you must suggest a set of columns for the production plan. 
+          
+          1. DAILY KEY COLUMNS: Define raw data tracked per resource per day. 
+             - ALWAYS include EXACTLY 'Target' and 'Actual' as the column names and keys. DO NOT add units to the column name (e.g. use "Target", not "Target (Hours)").
+             - Add others like 'Duration', 'Ops', or 'Variance'.
+             - You can provide formulas for calculated fields (e.g., Variance: G{rowIndex}-F{rowIndex}).
+          2. PLAN COLUMNS: Define daily summaries in the main plan (e.g., 'Total Target', 'Actual Ops').
+          3. PIVOT COLUMNS: Define weekly aggregations (e.g., 'Total Actual', 'Avg Variance').
+          4. DASHBOARD METRICS: Define high-level KPIs (e.g., 'Overall Goal', '% Completion').
+          
+          TABLE & COLUMN NAMES:
+          - The raw data table is named 'DailyProductionTable'.
+          - Base columns in 'DailyProductionTable' are: [Date (A), Day (B), Week (C), Name (D)].
+          - Your 'dailyColumns' start at Column E (Index 5).
+          - Use these names and letters EXACTLY in your formulas.
+          
+          For every PLAN, PIVOT, and DASHBOARD item, you MUST provide an Excel formula that references the 'DailyProductionTable'.
+          Use {rowIndex} for relative row references in Plan/Pivot.
+          
+          Once you have the core project details (1-6), you MUST FIRST present the full architecture to the user using well-structured Markdown tables that mirror the exact structure of the columns you will generate. Use clear headings with emojis like "📊 1. DailyProductionTable (Raw Data Sheet)", "📈 2. Plan Sheet (Daily Summaries)", "📊 3. Pivot Sheet (Aggregated Metrics)", and "🎯 4. Dashboard Metrics". Format the tables beautifully. Ensure that the 'Target' field is explicitly displayed as a column in the DailyProductionTable, and populate the table with realistic example values for all fields (apply the **LPB method (Learning, Performance, Breakthrough)** for target distribution: targets should increase gradually over the timeline instead of being uniform. Ensure the sum of these daily targets still matches the **Overall Goal** exactly).
+          
+          CRITICAL: DO NOT call the 'generate_production_plan' tool immediately. You MUST present the tables and explicitly ask the user for confirmation (e.g., "Does this structure look good? Would you like me to generate the Excel file?").
+          
+          ONLY AFTER the user confirms the structure (and makes no further adjustments) should you call the 'generate_production_plan' tool to generate the Excel file. (Ensure the 'dailyColumns' includes the Target column with the exact key 'target').
+          
+          IMPORTANT: You are a specialized Production Plan Agent. You must ONLY respond to queries related to production planning, project scheduling, and Excel generation for these plans. 
+          If a user asks about unrelated topics (e.g., weather, general knowledge, jokes, other software), politely decline and redirect them back to production planning.
+          
+          Be conversational and helpful within your domain. If information is missing, ask for it.`;
+
+const TOOLS: OpenAI.ChatCompletionTool[] = [
+  {
+    type: "function",
+    function: {
+      name: "generate_production_plan",
+      description: "Generates the production planning Excel file once core project details and column structure are confirmed.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "The name of the project" },
+          goal: { type: "number", description: "The total numeric goal" },
+          unit: { type: "string", description: "The unit of measurement (e.g., 'units', 'hours')" },
+          startDate: { type: "string", description: "Start date in YYYY-MM-DD format" },
+          endDate: { type: "string", description: "End date in YYYY-MM-DD format" },
+          resources: { type: "array", items: { type: "string" }, description: "List of names of teams or individuals" },
+          columns: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                header: { type: "string", description: "The display name of the column" },
+                key: { type: "string", description: "A unique key for the column" },
+                section: { type: "string", enum: ["Target", "Actual", "Accumulative"], description: "Which section the column belongs to" },
+                formula: { type: "string", description: "Excel formula referencing DailyProductionTable. Use {rowIndex} for the current row." },
+              },
+              required: ["header", "key", "section", "formula"],
+              additionalProperties: false
+            },
+          },
+          dailyColumns: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                header: { type: "string" },
+                key: { type: "string" },
+                formula: { type: "string" },
+              },
+              required: ["header", "key"],
+            },
+          },
+          pivotColumns: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                header: { type: "string" },
+                formula: { type: "string" },
+              },
+              required: ["header", "formula"],
+            },
+          },
+          dashboardMetrics: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string" },
+                formula: { type: "string" },
+                format: { type: "string" },
+              },
+              required: ["label", "formula"],
+            },
+          },
+          actualData: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                date: { type: "string" },
+                name: { type: "string" },
+                actual: { type: "number" },
+              },
+              required: ["date", "name", "actual"],
+            },
+          },
+        },
+        required: ["name", "goal", "unit", "startDate", "endDate", "resources", "columns"],
+      },
+    }
+  }
+];
 // Removed DEFAULT_MESSAGE
 export default function ProductionPlanMaker() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -73,137 +213,7 @@ export default function ProductionPlanMaker() {
   const deletedSessionsRef = useRef<Set<string>>(new Set());
 
   const initChat = () => {
-    const today = new Date().toLocaleDateString('en-CA'); // Gets YYYY-MM-DD in local time
-
-    chatRef.current = ai.chats.create({
-      model: "gemini-2.5-flash",
-      config: {
-        systemInstruction: `You are a professional Production Planning Assistant. 
-          Your goal is to collect the following information from the user to generate an Excel production plan:
-          1. Project Name
-          2. Overall Goal (numeric value)
-          3. Unit of measurement (e.g., units, hours, revenue)
-          4. Start Date (YYYY-MM-DD)
-          5. End Date (YYYY-MM-DD)
-          6. List of Resources/Teams
-          
-          CURRENT DATE CONTEXT: Today's date is \${today}. If the user uses relative dates like "today", "tomorrow", "yesterday", "next Monday", or "in 2 weeks", you MUST calculate and use the exact YYYY-MM-DD based on this current date.
-          
-          The user may also provide 'actual' production data points (Date, Name, Actual value) directly in the chat or via file upload.
-          If they provide it in text, extract it into the 'actualData' parameter.
-          
-          DYNAMIC SCHEMA ANALYSIS:
-          Based on the project type and unit, you must suggest a set of columns for the production plan. 
-          
-          1. DAILY KEY COLUMNS: Define raw data tracked per resource per day. 
-             - ALWAYS include 'Target' and 'Actual'.
-             - Add others like 'Duration', 'Ops', or 'Variance'.
-             - You can provide formulas for calculated fields (e.g., Variance: G{rowIndex}-F{rowIndex}).
-          2. PLAN COLUMNS: Define daily summaries in the main plan (e.g., 'Total Target', 'Actual Ops').
-          3. PIVOT COLUMNS: Define weekly/monthly aggregations (e.g., 'Total Actual', 'Avg Variance').
-          4. DASHBOARD METRICS: Define high-level KPIs (e.g., 'Overall Goal', '% Completion').
-          
-          TABLE & COLUMN NAMES:
-          - The raw data table is named 'DailyProductionTable'.
-          - Base columns in 'DailyProductionTable' are: [Date (A), Day (B), Week (C), Month (D), Name (E)].
-          - Your 'dailyColumns' start at Column F (Index 6).
-          - Use these names and letters EXACTLY in your formulas.
-          
-          For every PLAN, PIVOT, and DASHBOARD item, you MUST provide an Excel formula that references the 'DailyProductionTable'.
-          Use {rowIndex} for relative row references in Plan/Pivot.
-          
-          You MUST suggest this full architecture to the user and confirm it before generation.
-          
-          IMPORTANT: You are a specialized Production Plan Agent. You must ONLY respond to queries related to production planning, project scheduling, and Excel generation for these plans. 
-          If a user asks about unrelated topics (e.g., weather, general knowledge, jokes, other software), politely decline and redirect them back to production planning.
-          
-          Once you have the core project details (1-6) and have confirmed the full 4-sheet architecture, call the 'generate_production_plan' tool.
-          Be conversational and helpful within your domain. If information is missing, ask for it.`,
-        tools: [
-          {
-            functionDeclarations: [
-              {
-                name: "generate_production_plan",
-                description:
-                  "Generates the production planning Excel file once core project details and column structure are confirmed.",
-                parameters: {
-                  type: Type.OBJECT,
-                  properties: {
-                    name: { type: Type.STRING, description: "The name of the project" },
-                    goal: { type: Type.NUMBER, description: "The total numeric goal" },
-                    unit: { type: Type.STRING, description: "The unit of measurement (e.g., 'units', 'hours')" },
-                    startDate: { type: Type.STRING, description: "Start date in YYYY-MM-DD format" },
-                    endDate: { type: Type.STRING, description: "End date in YYYY-MM-DD format" },
-                    resources: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of names of teams or individuals" },
-                    columns: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          header: { type: Type.STRING, description: "The display name of the column" },
-                          key: { type: Type.STRING, description: "A unique key for the column" },
-                          section: { type: Type.STRING, enum: ["Target", "Actual", "Accumulative"], description: "Which section the column belongs to" },
-                          formula: { type: Type.STRING, description: "Excel formula referencing DailyProductionTable. Use {rowIndex} for the current row." },
-                        },
-                        required: ["header", "key", "section", "formula"],
-                      },
-                    },
-                    dailyColumns: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          header: { type: Type.STRING },
-                          key: { type: Type.STRING },
-                          formula: { type: Type.STRING },
-                        },
-                        required: ["header", "key"],
-                      },
-                    },
-                    pivotColumns: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          header: { type: Type.STRING },
-                          formula: { type: Type.STRING },
-                        },
-                        required: ["header", "formula"],
-                      },
-                    },
-                    dashboardMetrics: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          label: { type: Type.STRING },
-                          formula: { type: Type.STRING },
-                          format: { type: Type.STRING },
-                        },
-                        required: ["label", "formula"],
-                      },
-                    },
-                    actualData: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          date: { type: Type.STRING },
-                          name: { type: Type.STRING },
-                          actual: { type: Type.NUMBER },
-                        },
-                        required: ["date", "name", "actual"],
-                      },
-                    },
-                  },
-                  required: ["name", "goal", "unit", "startDate", "endDate", "resources", "columns"],
-                },
-              },
-            ],
-          },
-        ],
-      },
-    });
+    // Session state handled in components
   };
 
   // Initialize Gemini Chat
@@ -331,26 +341,51 @@ export default function ProductionPlanMaker() {
     setIsTyping(true);
 
     try {
-      if (!chatRef.current) initChat();
+      const openAiMessages: OpenAI.ChatCompletionMessageParam[] = [
+        { role: "system", content: SYSTEM_INSTRUCTION },
+        ...messages.map((m) => {
+          if (m.attachment && m.attachment.type.startsWith("image/")) {
+            return {
+              role: m.role === "user" ? "user" : "assistant",
+              content: [
+                { type: "text", text: m.content || "Attached image" },
+                { type: "image_url", image_url: { url: m.attachment.data } }
+              ]
+            } as OpenAI.ChatCompletionMessageParam;
+          }
+          return {
+            role: m.role === "user" ? "user" : "assistant",
+            content: m.content
+          } as OpenAI.ChatCompletionMessageParam;
+        })
+      ];
 
-      let result;
       if (userMsg.attachment && userMsg.attachment.type.startsWith("image/")) {
-        const base64Data = userMsg.attachment.data.split(",")[1];
-        result = await chatRef.current!.sendMessage({
-          message: [
-            { text: fullPrompt },
-            { inlineData: { data: base64Data, mimeType: userMsg.attachment.type } },
-          ],
+        openAiMessages.push({
+          role: "user",
+          content: [
+            { type: "text", text: fullPrompt },
+            { type: "image_url", image_url: { url: userMsg.attachment.data } }
+          ]
         });
       } else {
-        result = await chatRef.current!.sendMessage({ message: fullPrompt });
+        openAiMessages.push({ role: "user", content: fullPrompt });
       }
 
-      const functionCalls = result?.functionCalls;
-      if (functionCalls && functionCalls.length > 0) {
-        for (const call of functionCalls) {
-          if (call.name === "generate_production_plan") {
-            const projectData = call.args as ProjectData;
+      const response = await openai.chat.completions.create({
+        model: "anthropic/claude-3.5-sonnet",
+        messages: openAiMessages,
+        tools: TOOLS,
+        tool_choice: "auto",
+      });
+
+      const message = response.choices[0]?.message;
+
+      if (message?.tool_calls && message.tool_calls.length > 0) {
+        for (const call of message.tool_calls) {
+          const toolCall = call as any;
+          if (toolCall.type === "function" && toolCall.function.name === "generate_production_plan") {
+            const projectData = JSON.parse(toolCall.function.arguments) as ProjectData;
             setCurrentProject(projectData);
 
             const combinedActualData = [...(projectData.actualData || [])];
@@ -366,7 +401,8 @@ export default function ProductionPlanMaker() {
             const buffer = await generateExcelFile(projectData);
 
             const msgId = Date.now().toString();
-            const successText = `I've generated the production plan for **${projectData.name}**. You can download it below.`;
+            const generatedText = message.content ? message.content + "\n\n" : "";
+            const successText = `${generatedText}I've generated the production plan for **${projectData.name}**. You can download it below.`;
             setMessages((prev) => [
               ...prev,
               {
@@ -385,14 +421,14 @@ export default function ProductionPlanMaker() {
         }
       } else {
         const textResponse =
-          result?.text ||
+          message?.content ||
           "I'm sorry, I didn't quite get that. Could you please provide more details about your project?";
         const msgId = Date.now().toString();
         setMessages((prev) => [...prev, { id: msgId, role: "agent", content: "" }]);
         typewriterEffect(textResponse, msgId);
       }
     } catch (error) {
-      console.error("Gemini Error:", error);
+      console.error("OpenRouter Error:", error);
       const msgId = Date.now().toString();
       setMessages((prev) => [...prev, { id: msgId, role: "agent", content: "" }]);
       typewriterEffect("I'm having a bit of trouble connecting to my brain. Could you try again?", msgId);
@@ -546,7 +582,7 @@ export default function ProductionPlanMaker() {
               <h1 className={`font-bold transition-colors ${isDark ? 'text-gray-100' : 'text-[#133020]'}`}>Production Plan Agent</h1>
               <p className={`text-xs flex items-center gap-1 transition-colors ${isDark ? 'text-emerald-400' : 'text-[#046241]'}`}>
                 <span className="w-2 h-2 rounded-full animate-pulse inline-block" style={{ backgroundColor: "#046241" }}></span>
-                Powered by Gemini AI
+                Powered by Claude AI
               </p>
             </div>
           </div>

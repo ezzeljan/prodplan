@@ -30,6 +30,11 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     const scheduleItems: any[] = [];
 
     days.forEach(day => {
+        // Calculate days elapsed from start date
+        const daysElapsed = Math.floor((day.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        const weekNum = Math.floor(daysElapsed / 7) + 1;
+        const weekString = `Week ${weekNum}`;
+
         projectData.resources.forEach(resource => {
             // Find actual data if it exists
             let actualMatch: ActualDataItem | null = null;
@@ -43,6 +48,7 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
             const item: any = {
                 date: day,
                 name: resource,
+                weekString,
                 actual: actualMatch ? actualMatch.actual : null
             };
 
@@ -57,25 +63,45 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         });
     });
 
-    const totalItems = scheduleItems.length;
+    const uniqueDates = Array.from(new Set(scheduleItems.map(s => s.date.toISOString()))).sort();
+    const totalDays = uniqueDates.length;
 
-    // --- LPB Target Distribution Logic ---
-    const weights = scheduleItems.map((_, index) => {
-        const t = index / (totalItems - 1 || 1);
-        if (t < 0.25) {
-            return 0.3 + (0.6 - 0.3) * (t / 0.25);
-        } else if (t < 0.75) {
-            return 0.6 + (1.0 - 0.6) * ((t - 0.25) / 0.5);
-        } else {
-            return 1.0;
-        }
+    const itemsByDay: Record<string, number> = {};
+    scheduleItems.forEach(item => {
+        const d = item.date.toISOString();
+        itemsByDay[d] = (itemsByDay[d] || 0) + 1;
     });
 
-    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-    const itemsWithTargets = scheduleItems.map((item, index) => ({
-        ...item,
-        target: (weights[index] / totalWeight) * projectData.goal
-    }));
+    let cumulativeWeight = 0;
+    const dailyWeights: Record<string, number> = {};
+
+    uniqueDates.forEach((date, i) => {
+        const progress = i / (totalDays - 1 || 1);
+        let weight = 0;
+
+        if (progress < 0.25) {
+            const pAdjusted = progress / 0.25;
+            weight = 0.4 + (0.3 * pAdjusted);
+        } else if (progress < 0.75) {
+            const pAdjusted = (progress - 0.25) / 0.5;
+            weight = 0.7 + (0.4 * pAdjusted);
+        } else {
+            const pAdjusted = (progress - 0.75) / 0.25;
+            weight = 1.1 + (0.2 * pAdjusted);
+        }
+
+        dailyWeights[date] = weight;
+        cumulativeWeight += weight * (itemsByDay[date] || 0);
+    });
+
+    const itemsWithTargets = scheduleItems.map((item) => {
+        const weight = dailyWeights[item.date.toISOString()] || 1;
+        const target = (weight / (cumulativeWeight || 1)) * projectData.goal;
+        return {
+            ...item,
+            target
+        };
+    });
 
     // --- Sheet 1: Daily_Production_Key ---
     const sheetKey = workbook.addWorksheet(sanitizeSheetName('Daily_Production_Key'));
@@ -83,7 +109,6 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         { header: 'Date', key: 'date', width: 15 },
         { header: 'Day', key: 'day', width: 15 },
         { header: 'Week', key: 'week', width: 10 },
-        { header: 'Month', key: 'month', width: 15 },
         { header: 'Name', key: 'name', width: 20 },
     ];
 
@@ -100,7 +125,6 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         { name: 'Date', filterButton: true },
         { name: 'Day', filterButton: true },
         { name: 'Week', filterButton: true },
-        { name: 'Month', filterButton: true },
         { name: 'Name', filterButton: true },
         ...dynamicKeyCols.map(col => ({
             name: col.header,
@@ -121,13 +145,15 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
             const row: any[] = [
                 item.date,
                 { formula: `TEXT(A${rowIndex}, "dddd")` },
-                { formula: `WEEKNUM(A${rowIndex})` },
-                { formula: `TEXT(A${rowIndex}, "mmmm")` },
+                item.weekString,
                 item.name,
             ];
 
             dynamicKeyCols.forEach(col => {
-                if (col.formula) {
+                if (col.key.toLowerCase().includes('target')) {
+                    // Force map target value if column key is named anything containing 'target'
+                    row.push(item.target);
+                } else if (col.formula) {
                     row.push({ formula: col.formula.replace(/{rowIndex}/g, rowIndex.toString()) });
                 } else {
                     row.push(item[col.key]);
@@ -154,7 +180,6 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
 
     const dynamicColumns = [
         { header: 'Date', key: 'date', width: 15, section: 'Target' as const },
-        { header: 'Month', key: 'month', width: 15, section: 'Target' as const },
         ...projectData.columns
     ];
 
@@ -218,7 +243,6 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     headerRow4.height = 40;
 
     // Data Rows
-    const uniqueDates = Array.from(new Set(scheduleItems.map(s => s.date.toISOString()))).sort();
     uniqueDates.forEach((dateIso, index) => {
         const rowIndex = index + 5;
         const dateObj = new Date(dateIso);
@@ -226,7 +250,6 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         dynamicColumns.forEach((col, colIdx) => {
             const cell = row.getCell(colIdx + 1);
             if (col.key === 'date') cell.value = dateObj;
-            else if (col.key === 'month') cell.value = { formula: `TEXT(A${rowIndex}, "mmmm")` };
             else if (col.formula) cell.value = { formula: col.formula.replace(/{rowIndex}/g, rowIndex.toString()) };
             cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             if (col.header.toLowerCase().includes('rate') || col.header.toLowerCase().includes('%')) cell.numFmt = '0.00%';
@@ -243,7 +266,7 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         const cell = totalRow.getCell(colIdx + 1);
         const colLetter = getColumnLetter(colIdx + 1);
         const isRate = col.header.toLowerCase().includes('rate') || col.header.toLowerCase().includes('%');
-        if (col.key !== 'month' && !isRate) {
+        if (col.key !== 'week' && !isRate) {
             cell.value = { formula: `SUM(${colLetter}5:${colLetter}${totalRowIndex - 1})` };
         }
         cell.border = { top: { style: 'double' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -270,25 +293,22 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
 
     const pivotCols = [
         { header: 'Week', key: 'week', width: 10 },
-        { header: 'Month', key: 'month', width: 15 },
         ...pivotColumns.map(col => ({ header: col.header, width: 20, formula: col.formula }))
     ];
     sheetPivot.columns = pivotCols.map(c => ({ key: c.header, width: c.width }));
 
-    const uniqueWeeks = Array.from(new Set(scheduleItems.map(item => {
-        // Note: This is an approximation for generating the weekly list in JS
-        // In Excel, the table helps. We'll just generate enough rows to cover the period.
-        const weekNum = Math.ceil((item.date.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
-        return weekNum;
-    }))).sort((a, b) => a - b);
+    const uniqueWeeks = Array.from(new Set(scheduleItems.map(item => item.weekString))).sort((a: any, b: any) => {
+        const weekA = parseInt(a.replace('Week ', ''));
+        const weekB = parseInt(b.replace('Week ', ''));
+        return weekA - weekB;
+    });
 
-    uniqueWeeks.forEach((week, idx) => {
+    uniqueWeeks.forEach((weekStr, idx) => {
         const rIdx = idx + 2;
         const row = sheetPivot.getRow(rIdx);
-        row.getCell(1).value = week;
-        row.getCell(2).value = { formula: `VLOOKUP(A${rIdx}, DailyProductionTable[[Week]:[Month]], 2, FALSE)` };
+        row.getCell(1).value = weekStr;
         pivotColumns.forEach((col, cIdx) => {
-            row.getCell(cIdx + 3).value = { formula: col.formula.replace(/{rowIndex}/g, rIdx.toString()) };
+            row.getCell(cIdx + 2).value = { formula: col.formula.replace(/{rowIndex}/g, rIdx.toString()) };
         });
     });
 

@@ -5,11 +5,12 @@ export interface Message {
     id: string;
     role: 'agent' | 'user';
     content: string;
-    type?: 'text' | 'file';
+    type?: 'text' | 'file' | 'preview';
     fileData?: {
         name: string;
         buffer: any;
     };
+    previewData?: any;
 }
 
 export interface ChatSession {

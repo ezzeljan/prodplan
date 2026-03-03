@@ -4,11 +4,12 @@ export interface Message {
     id: string;
     role: 'agent' | 'user';
     content: string;
-    type?: 'text' | 'file';
+    type?: 'text' | 'file' | 'preview';
     fileData?: {
         name: string;
         buffer: ExcelJS.Buffer;
     };
+    previewData?: ProjectData;
     attachment?: {
         name: string;
         type: string;
