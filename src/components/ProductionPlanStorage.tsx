@@ -8,6 +8,15 @@ export default function ProductionPlanStorage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    const [isDark, setIsDark] = useState(() => localStorage.getItem("theme") === "dark");
+
+    useEffect(() => {
+        const observer = new MutationObserver(() => {
+            setIsDark(document.documentElement.classList.contains("dark"));
+        });
+        observer.observe(document.documentElement, { attributeFilter: ["class"] });
+        return () => observer.disconnect();
+    }, []);
 
     useEffect(() => {
         loadPlans();
@@ -44,7 +53,7 @@ export default function ProductionPlanStorage() {
     );
 
     return (
-        <div className="flex-1 h-screen overflow-y-auto bg-[#f8f9fa] dark:bg-[#171717] transition-colors duration-300">
+        <div className={`flex-1 h-screen overflow-y-auto transition-colors duration-300 ${isDark ? 'bg-[#171717]' : 'bg-[#f8f9fa]'}`}>
             <div className="max-w-4xl mx-auto px-6 py-10">
 
                 {/* Header */}
@@ -56,11 +65,11 @@ export default function ProductionPlanStorage() {
                         >
                             <FileSpreadsheet className="w-5 h-5" style={{ color: '#046241' }} />
                         </div>
-                        <h1 className="text-2xl font-bold text-[#133020] dark:text-white">
+                        <h1 className={`text-2xl font-bold transition-colors ${isDark ? 'text-white' : 'text-[#133020]'}`}>
                             Production Plans
                         </h1>
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 ml-[52px]">
+                    <p className={`text-sm ml-[52px] transition-colors ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                         All your generated Excel production plans stored here. Click to re-download anytime.
                     </p>
                 </div>
@@ -74,8 +83,10 @@ export default function ProductionPlanStorage() {
                             placeholder="Search plans..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[#133020] dark:text-white placeholder-gray-400 outline-none focus:ring-2 text-sm transition-all"
-                            style={{ '--tw-ring-color': 'rgba(4,98,65,0.3)' } as any}
+                            className={`w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none text-sm transition-all ${isDark
+                                    ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500'
+                                    : 'bg-white border-gray-200 text-[#133020] placeholder-gray-400'
+                                }`}
                         />
                     </div>
                 )}
@@ -86,7 +97,6 @@ export default function ProductionPlanStorage() {
                         <div className="w-8 h-8 rounded-full border-2 border-[#046241] border-t-transparent animate-spin" />
                     </div>
                 ) : plans.length === 0 ? (
-                    /* Empty state */
                     <div className="flex flex-col items-center justify-center py-24 text-center">
                         <div
                             className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5"
@@ -94,36 +104,35 @@ export default function ProductionPlanStorage() {
                         >
                             <FolderOpen className="w-10 h-10" style={{ color: '#046241' }} />
                         </div>
-                        <h3 className="text-lg font-semibold text-[#133020] dark:text-white mb-2">
+                        <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-[#133020]'}`}>
                             No plans saved yet
                         </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs leading-relaxed">
+                        <p className={`text-sm max-w-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                             Generate a production plan from the Home tab and it will automatically appear here for re-download.
                         </p>
                     </div>
                 ) : filtered.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center">
                         <AlertCircle className="w-8 h-8 text-gray-400 mb-3" />
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                             No plans match "<span className="font-medium">{search}</span>"
                         </p>
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {/* Count */}
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                        <p className={`text-xs mb-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                             {filtered.length} plan{filtered.length !== 1 ? 's' : ''} found
                         </p>
 
                         {filtered.map((plan) => (
                             <div
                                 key={plan.id}
-                                className="group flex items-center gap-4 p-4 rounded-2xl border bg-white dark:bg-zinc-800/80 dark:border-zinc-700/50 hover:shadow-md transition-all duration-200"
-                                style={{ borderColor: '#e5e0d5' }}
+                                className={`group flex items-center gap-4 p-4 rounded-2xl border hover:shadow-md transition-all duration-200 ${isDark ? 'bg-zinc-800/80 border-zinc-700/50' : 'bg-white border-[#e5e0d5]'
+                                    }`}
                             >
                                 {/* Icon */}
                                 <div
-                                    className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors"
+                                    className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
                                     style={{ backgroundColor: 'rgba(255,195,112,0.15)' }}
                                 >
                                     <FileSpreadsheet className="w-6 h-6" style={{ color: '#046241' }} />
@@ -131,15 +140,15 @@ export default function ProductionPlanStorage() {
 
                                 {/* Info */}
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-[#133020] dark:text-white truncate">
+                                    <p className={`font-semibold truncate ${isDark ? 'text-white' : 'text-[#133020]'}`}>
                                         {plan.projectName}
                                     </p>
-                                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                                    <p className={`text-xs truncate mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                                         {plan.fileName}
                                     </p>
                                     <div className="flex items-center gap-1 mt-1">
                                         <Calendar className="w-3 h-3 text-gray-400" />
-                                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                                        <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                                             {new Date(plan.createdAt).toLocaleDateString('en-US', {
                                                 year: 'numeric',
                                                 month: 'short',
@@ -153,7 +162,6 @@ export default function ProductionPlanStorage() {
 
                                 {/* Actions */}
                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {/* Download */}
                                     <button
                                         onClick={() => handleDownload(plan)}
                                         className="p-2.5 rounded-xl transition-all hover:-translate-y-0.5 active:scale-95 text-white shadow-sm"
@@ -163,7 +171,6 @@ export default function ProductionPlanStorage() {
                                         <Download className="w-4 h-4" />
                                     </button>
 
-                                    {/* Delete */}
                                     {deleteConfirm === plan.id ? (
                                         <div className="flex items-center gap-1">
                                             <button
@@ -174,7 +181,10 @@ export default function ProductionPlanStorage() {
                                             </button>
                                             <button
                                                 onClick={() => setDeleteConfirm(null)}
-                                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors"
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isDark
+                                                        ? 'bg-zinc-700 text-gray-300 hover:bg-zinc-600'
+                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                    }`}
                                             >
                                                 Cancel
                                             </button>
@@ -182,7 +192,8 @@ export default function ProductionPlanStorage() {
                                     ) : (
                                         <button
                                             onClick={() => setDeleteConfirm(plan.id)}
-                                            className="p-2.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                                            className={`p-2.5 rounded-xl text-gray-400 hover:text-red-500 transition-all ${isDark ? 'hover:bg-red-500/10' : 'hover:bg-red-50'
+                                                }`}
                                             title="Delete"
                                         >
                                             <Trash2 className="w-4 h-4" />
