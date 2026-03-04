@@ -18,8 +18,8 @@ import {
 } from "lucide-react";
 import OpenAI from "openai";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from 'remark-gfm';
-import { savePlan } from '../utils/planStorage';
+import remarkGfm from "remark-gfm";
+import { savePlan } from "../utils/planStorage";
 
 // Modular Imports
 import {
@@ -232,14 +232,24 @@ export default function ProductionPlanMaker() {
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [uploadedData, setUploadedData] = useState<ActualDataItem[] | null>(null);
+  const [uploadedData, setUploadedData] = useState<ActualDataItem[] | null>(
+    null,
+  );
   const [fileName, setFileName] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<FileAttachment | null>(null);
-  const [currentProject, setCurrentProject] = useState<Partial<ProjectData> | null>(null);
+  const [currentProject, setCurrentProject] =
+    useState<Partial<ProjectData> | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
-  const [isDark, setIsDark] = useState(() => localStorage.getItem("theme") === "dark");
-  const [confirmedMsgIds, setConfirmedMsgIds] = useState<Set<string>>(new Set());
+  const [previewImage, setPreviewImage] = useState<{
+    url: string;
+    name: string;
+  } | null>(null);
+  const [isDark, setIsDark] = useState(
+    () => localStorage.getItem("theme") === "dark",
+  );
+  const [confirmedMsgIds, setConfirmedMsgIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [rejectedMsgIds, setRejectedMsgIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -259,7 +269,7 @@ export default function ProductionPlanMaker() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const deletedSessionsRef = useRef<Set<string>>(new Set());
 
-  const initChat = () => { };
+  const initChat = () => {};
 
   useEffect(() => {
     if (!chatRef.current) initChat();
@@ -281,7 +291,7 @@ export default function ProductionPlanMaker() {
     if (!activeSessionId) return;
     setSessions((prev) => {
       const filtered = prev.filter(
-        (s) => !deletedSessionsRef.current.has(s.id)
+        (s) => !deletedSessionsRef.current.has(s.id),
       );
       const exists = filtered.find((s) => s.id === activeSessionId);
       let updated: ChatSession[];
@@ -289,7 +299,7 @@ export default function ProductionPlanMaker() {
         updated = filtered.map((s) =>
           s.id === activeSessionId
             ? { ...s, messages, title: generateSessionTitle(messages) }
-            : s
+            : s,
         );
       } else {
         updated = [
@@ -345,16 +355,19 @@ export default function ProductionPlanMaker() {
     // ✅ Also mark all other proposal messages as rejected so their buttons hide too
     setRejectedMsgIds((prev) => {
       const updated = new Set([...prev]);
-      messages.forEach(m => {
+      messages.forEach((m) => {
         if (m.id !== msgId && isTableProposal(m.content)) {
           updated.add(m.id);
         }
       });
       return updated;
     });
-    setInputValue("Yes, the structure looks good. Please generate the Excel file.");
+    setInputValue(
+      "Yes, the structure looks good. Please generate the Excel file.",
+    );
     setTimeout(() => {
-      const sendBtn = document.querySelector<HTMLButtonElement>('[data-send-btn]');
+      const sendBtn =
+        document.querySelector<HTMLButtonElement>("[data-send-btn]");
       sendBtn?.click();
     }, 100);
   };
@@ -373,8 +386,8 @@ export default function ProductionPlanMaker() {
       i += 5;
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === msgId ? { ...m, content: fullText.slice(0, i) } : m
-        )
+          m.id === msgId ? { ...m, content: fullText.slice(0, i) } : m,
+        ),
       );
       if (i >= fullText.length) {
         if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
@@ -421,7 +434,11 @@ export default function ProductionPlanMaker() {
           ? `Shared ${currentFile.type.startsWith("image/") ? "an image" : "a file"}: ${currentFile.name}`
           : ""),
       attachment: currentFile
-        ? { name: currentFile.name, type: currentFile.type, data: currentFile.data }
+        ? {
+            name: currentFile.name,
+            type: currentFile.type,
+            data: currentFile.data,
+          }
         : undefined,
     };
 
@@ -479,14 +496,16 @@ export default function ProductionPlanMaker() {
             toolCall.type === "function" &&
             toolCall.function.name === "generate_production_plan"
           ) {
-            const projectData = JSON.parse(toolCall.function.arguments) as ProjectData;
+            const projectData = JSON.parse(
+              toolCall.function.arguments,
+            ) as ProjectData;
             setCurrentProject(projectData);
 
             const combinedActualData = [...(projectData.actualData || [])];
             if (uploadedData) {
               uploadedData.forEach((upItem) => {
                 const exists = combinedActualData.some(
-                  (c) => c.date === upItem.date && c.name === upItem.name
+                  (c) => c.date === upItem.date && c.name === upItem.name,
                 );
                 if (!exists) combinedActualData.push(upItem);
               });
@@ -505,7 +524,9 @@ export default function ProductionPlanMaker() {
             });
 
             const msgId = Date.now().toString();
-            const generatedText = message.content ? message.content + "\n\n" : "";
+            const generatedText = message.content
+              ? message.content + "\n\n"
+              : "";
             const successText = `${generatedText}I've generated the production plan for **${projectData.name}**. You can download it below.`;
             setMessages((prev) => [
               ...prev,
@@ -528,16 +549,22 @@ export default function ProductionPlanMaker() {
           message?.content ||
           "I'm sorry, I didn't quite get that. Could you please provide more details about your project?";
         const msgId = Date.now().toString();
-        setMessages((prev) => [...prev, { id: msgId, role: "agent", content: "" }]);
+        setMessages((prev) => [
+          ...prev,
+          { id: msgId, role: "agent", content: "" },
+        ]);
         typewriterEffect(textResponse, msgId);
       }
     } catch (error) {
       console.error("OpenRouter Error:", error);
       const msgId = Date.now().toString();
-      setMessages((prev) => [...prev, { id: msgId, role: "agent", content: "" }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: msgId, role: "agent", content: "" },
+      ]);
       typewriterEffect(
         "I'm having a bit of trouble connecting to my brain. Could you try again?",
-        msgId
+        msgId,
       );
     } finally {
       setIsTyping(false);
@@ -638,8 +665,9 @@ export default function ProductionPlanMaker() {
 
   return (
     <div
-      className={`w-full h-[calc(100vh-4rem)] md:h-screen flex overflow-hidden relative transition-colors duration-300 ${isDark ? "bg-[#171717]" : "bg-[#f8f9fa]"
-        }`}
+      className={`w-full h-[calc(100vh-4rem)] md:h-screen flex overflow-hidden relative transition-colors duration-300 ${
+        isDark ? "bg-[#171717]" : "bg-[#f8f9fa]"
+      }`}
       onDragOver={(e) => {
         e.preventDefault();
         setIsDragging(true);
@@ -669,12 +697,14 @@ export default function ProductionPlanMaker() {
       <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Background blobs */}
         <div
-          className={`absolute top-[5%] left-[5%] w-[400px] h-[400px] rounded-full blur-[100px] pointer-events-none ${isDark ? "bg-zinc-800/20" : "bg-slate-200/40"
-            }`}
+          className={`absolute top-[5%] left-[5%] w-[400px] h-[400px] rounded-full blur-[100px] pointer-events-none ${
+            isDark ? "bg-zinc-800/20" : "bg-slate-200/40"
+          }`}
         />
         <div
-          className={`absolute bottom-[20%] right-[10%] w-[500px] h-[500px] rounded-full blur-[120px] pointer-events-none ${isDark ? "bg-zinc-700/10" : "bg-zinc-200/30"
-            }`}
+          className={`absolute bottom-[20%] right-[10%] w-[500px] h-[500px] rounded-full blur-[120px] pointer-events-none ${
+            isDark ? "bg-zinc-700/10" : "bg-zinc-200/30"
+          }`}
         />
 
         {/* Drag Overlay */}
@@ -685,7 +715,9 @@ export default function ProductionPlanMaker() {
                 <Download className="w-8 h-8 animate-bounce" />
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-gray-900">Drop files here</p>
+                <p className="text-xl font-bold text-gray-900">
+                  Drop files here
+                </p>
                 <p className="text-sm text-gray-500 mt-1">
                   CSV, Excel, PDF, Docs, or Images
                 </p>
@@ -705,14 +737,16 @@ export default function ProductionPlanMaker() {
             </div>
             <div>
               <h1
-                className={`font-bold transition-colors ${isDark ? "text-gray-100" : "text-[#133020]"
-                  }`}
+                className={`font-bold transition-colors ${
+                  isDark ? "text-gray-100" : "text-[#133020]"
+                }`}
               >
                 Production Plan Agent
               </h1>
               <p
-                className={`text-xs flex items-center gap-1 transition-colors ${isDark ? "text-emerald-400" : "text-[#046241]"
-                  }`}
+                className={`text-xs flex items-center gap-1 transition-colors ${
+                  isDark ? "text-emerald-400" : "text-[#046241]"
+                }`}
               >
                 <span
                   className="w-2 h-2 rounded-full animate-pulse inline-block"
@@ -725,20 +759,26 @@ export default function ProductionPlanMaker() {
           <div className="flex gap-1">
             <button
               onClick={() => setIsDark(!isDark)}
-              className={`p-2 rounded-full transition-colors ${isDark
-                ? "hover:bg-white/10 text-gray-300"
-                : "hover:bg-white/40 hover:shadow-sm text-[#133020]"
-                }`}
+              className={`p-2 rounded-full transition-colors ${
+                isDark
+                  ? "hover:bg-white/10 text-gray-300"
+                  : "hover:bg-white/40 hover:shadow-sm text-[#133020]"
+              }`}
               title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
-              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {isDark ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
             </button>
             <button
               onClick={startNewSession}
-              className={`p-2 rounded-full transition-colors ${isDark
-                ? "hover:bg-white/10 text-gray-300"
-                : "hover:bg-white/40 hover:shadow-sm text-[#133020]"
-                }`}
+              className={`p-2 rounded-full transition-colors ${
+                isDark
+                  ? "hover:bg-white/10 text-gray-300"
+                  : "hover:bg-white/40 hover:shadow-sm text-[#133020]"
+              }`}
               title="New Chat"
             >
               <RefreshCw className="w-5 h-5" />
@@ -748,8 +788,9 @@ export default function ProductionPlanMaker() {
 
         {/* ── Messages Container ── */}
         <div
-          className={`flex-1 overflow-y-auto pt-28 pb-40 px-4 sm:px-12 md:px-24 lg:px-48 xl:px-72 space-y-6 relative z-10 ${messages.length === 0 ? "hidden" : ""
-            }`}
+          className={`flex-1 overflow-y-auto pt-28 pb-40 px-4 sm:px-12 md:px-24 lg:px-48 xl:px-72 space-y-6 relative z-10 ${
+            messages.length === 0 ? "hidden" : ""
+          }`}
         >
           {messages.map((msg) => (
             <div
@@ -760,8 +801,7 @@ export default function ProductionPlanMaker() {
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white"
                 style={{
-                  backgroundColor:
-                    msg.role === "agent" ? "#046241" : "#133020",
+                  backgroundColor: msg.role === "agent" ? "#046241" : "#133020",
                 }}
               >
                 {msg.role === "agent" ? (
@@ -779,23 +819,24 @@ export default function ProductionPlanMaker() {
                   style={
                     msg.role === "agent"
                       ? {
-                        backgroundColor: isDark ? "#27272a" : "#ffffff",
-                        color: isDark ? "#f4f4f5" : "#133020",
-                        borderRadius: "0 1rem 1rem 1rem",
-                        border: isDark
-                          ? "1px solid #3f3f46"
-                          : "1px solid #e5e0d5",
-                      }
+                          backgroundColor: isDark ? "#27272a" : "#ffffff",
+                          color: isDark ? "#f4f4f5" : "#133020",
+                          borderRadius: "0 1rem 1rem 1rem",
+                          border: isDark
+                            ? "1px solid #3f3f46"
+                            : "1px solid #e5e0d5",
+                        }
                       : {
-                        backgroundColor: "#133020",
-                        color: "#ffffff",
-                        borderRadius: "1rem 0 1rem 1rem",
-                      }
+                          backgroundColor: "#133020",
+                          color: "#ffffff",
+                          borderRadius: "1rem 0 1rem 1rem",
+                        }
                   }
                 >
                   <div
-                    className={`leading-relaxed prose prose-sm max-w-none ${isDark ? "prose-invert text-gray-200" : ""
-                      }`}
+                    className={`leading-relaxed prose prose-sm max-w-none ${
+                      isDark ? "prose-invert text-gray-200" : ""
+                    }`}
                   >
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
@@ -902,14 +943,15 @@ export default function ProductionPlanMaker() {
                         </div>
                       ) : (
                         <div
-                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isDark
-                            ? "bg-white/5 border-white/10 hover:bg-white/10"
-                            : "bg-white/10 border-white/20 hover:bg-white/20"
-                            }`}
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            isDark
+                              ? "bg-white/5 border-white/10 hover:bg-white/10"
+                              : "bg-white/10 border-white/20 hover:bg-white/20"
+                          }`}
                           onClick={() =>
                             downloadAttachment(
                               msg.attachment!.data,
-                              msg.attachment!.name
+                              msg.attachment!.name,
                             )
                           }
                         >
@@ -933,12 +975,12 @@ export default function ProductionPlanMaker() {
 
                 {/* ✅ Confirm / Modify buttons */}
                 {msg.role === "agent" &&
-                  msg.type !== "file" &&                    // ✅ hide on file messages
+                  msg.type !== "file" && // ✅ hide on file messages
                   isTableProposal(msg.content) &&
                   !confirmedMsgIds.has(msg.id) &&
                   !rejectedMsgIds.has(msg.id) &&
                   !isStreaming &&
-                  msg.content.length > 50 && (             // ✅ only show when content is substantial
+                  msg.content.length > 50 && ( // ✅ only show when content is substantial
                     <div className="flex gap-2 mt-1">
                       <button
                         onClick={() => handleConfirmStructure(msg.id)}
@@ -1003,7 +1045,10 @@ export default function ProductionPlanMaker() {
                         Click to download
                       </p>
                     </div>
-                    <Download className="w-5 h-5" style={{ color: "#133020" }} />
+                    <Download
+                      className="w-5 h-5"
+                      style={{ color: "#133020" }}
+                    />
                   </button>
                 )}
               </div>
@@ -1047,30 +1092,71 @@ export default function ProductionPlanMaker() {
           className={
             messages.length === 0
               ? "absolute inset-0 flex flex-col items-center justify-center p-4 z-20 pointer-events-none"
-              : `absolute bottom-0 left-0 w-full pb-6 pt-12 px-4 flex justify-center z-20 pointer-events-none bg-gradient-to-t ${isDark
-                ? "from-[#171717] via-[#171717]/90"
-                : "from-[#f8f9fa] via-[#f8f9fa]/90"
-              } to-transparent transition-colors duration-300`
+              : `absolute bottom-0 left-0 w-full pb-6 pt-12 px-4 flex justify-center z-20 pointer-events-none bg-gradient-to-t ${
+                  isDark
+                    ? "from-[#171717] via-[#171717]/90"
+                    : "from-[#f8f9fa] via-[#f8f9fa]/90"
+                } to-transparent transition-colors duration-300`
           }
         >
           {messages.length === 0 && (
-            <h2
-              className={`text-3xl md:text-5xl font-normal mb-8 tracking-tight text-center pointer-events-auto transition-colors duration-300 ${isDark ? "text-gray-100" : "text-[#133020]"
-                }`}
-            >
-              What's on the agenda today?
-            </h2>
+            <div className="flex flex-col items-center pointer-events-auto mb-6">
+              <h2
+                className={`text-3xl md:text-5xl font-normal mb-8 tracking-tight text-center transition-colors duration-300 ${isDark ? "text-gray-100" : "text-[#133020]"}`}
+              >
+                What's on the agenda today?
+              </h2>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {[
+                  {
+                    label: "📦 Manufacturing Plan",
+                    prompt: "I need a manufacturing production plan.",
+                  },
+                  {
+                    label: "⏱️ Hours Tracking",
+                    prompt: "I need an hours tracking production plan.",
+                  },
+                  {
+                    label: "💰 Revenue Target",
+                    prompt: "I need a revenue target production plan.",
+                  },
+                  {
+                    label: "👥 Team Output",
+                    prompt: "I need a team output production plan.",
+                  },
+                ].map((chip) => (
+                  <button
+                    key={chip.label}
+                    onClick={() => {
+                      setInputValue(chip.prompt);
+                      textareaRef.current?.focus();
+                    }}
+                    className={`px-4 py-2 rounded-full text-sm font-medium border transition-all hover:scale-105 active:scale-95 ${
+                      isDark
+                        ? "bg-zinc-800/80 border-white/10 text-gray-200 hover:bg-zinc-700 hover:border-white/20"
+                        : "bg-white/80 border-[#e5e0d5] text-[#133020] hover:bg-white hover:border-[#046241]"
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           <div
-            className={`w-full max-w-4xl p-2 rounded-3xl shadow-2xl space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${isDark
-              ? "bg-zinc-800/60 border-white/10"
-              : "bg-white/50 border-white/50"
-              }`}
+            className={`w-full max-w-4xl p-2 rounded-3xl shadow-2xl space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${
+              isDark
+                ? "bg-zinc-800/60 border-white/10"
+                : "bg-white/50 border-white/50"
+            }`}
           >
             {fileName && (
               <div
                 className="flex items-center justify-between px-3 py-2 rounded-lg"
-                style={{ backgroundColor: "#ffffff", border: "1px solid #FFC370" }}
+                style={{
+                  backgroundColor: "#ffffff",
+                  border: "1px solid #FFC370",
+                }}
               >
                 <div
                   className="flex items-center gap-2 text-sm"
@@ -1119,10 +1205,11 @@ export default function ProductionPlanMaker() {
                 onKeyDown={handleKeyDown}
                 placeholder="Describe your project..."
                 disabled={isTyping || isStreaming}
-                className={`flex-1 px-4 py-3 rounded-xl outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-[200px] backdrop-blur-sm ${isDark
-                  ? "bg-zinc-900/40 text-gray-100 placeholder-zinc-500"
-                  : "bg-white/60 text-[#133020]"
-                  }`}
+                className={`flex-1 px-4 py-3 rounded-xl outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-[200px] backdrop-blur-sm ${
+                  isDark
+                    ? "bg-zinc-900/40 text-gray-100 placeholder-zinc-500"
+                    : "bg-white/60 text-[#133020]"
+                }`}
                 style={{
                   border: isDark
                     ? "1px solid rgba(255,255,255,0.1)"
@@ -1133,7 +1220,9 @@ export default function ProductionPlanMaker() {
                 data-send-btn
                 onClick={handleSendMessage}
                 disabled={
-                  (!inputValue.trim() && !currentFile) || isTyping || isStreaming
+                  (!inputValue.trim() && !currentFile) ||
+                  isTyping ||
+                  isStreaming
                 }
                 className="p-3 mb-0.5 rounded-xl transition-opacity shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-white"
                 style={{ backgroundColor: "#046241" }}
@@ -1171,7 +1260,9 @@ export default function ProductionPlanMaker() {
                 alt={previewImage.name}
                 className="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain"
               />
-              <p className="mt-4 text-white/80 font-medium">{previewImage.name}</p>
+              <p className="mt-4 text-white/80 font-medium">
+                {previewImage.name}
+              </p>
             </div>
           </div>
         )}
