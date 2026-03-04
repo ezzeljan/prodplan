@@ -19,6 +19,7 @@ import {
 import OpenAI from "openai";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from 'remark-gfm';
+import { savePlan } from '../utils/planStorage';
 
 // Modular Imports
 import {
@@ -493,6 +494,15 @@ export default function ProductionPlanMaker() {
             projectData.actualData =
               combinedActualData.length > 0 ? combinedActualData : undefined;
             const buffer = await generateExcelFile(projectData);
+
+            // ✅ Save to IndexedDB storage
+            await savePlan({
+              id: Date.now().toString(),
+              projectName: projectData.name,
+              fileName: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
+              createdAt: new Date().toISOString(),
+              buffer: buffer,
+            });
 
             const msgId = Date.now().toString();
             const generatedText = message.content ? message.content + "\n\n" : "";
