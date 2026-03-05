@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { saveAs } from "file-saver";
 import {
   Bot,
+  Plus,
   RefreshCw,
   Download,
   User as UserIcon,
@@ -713,6 +714,13 @@ export default function ProductionPlanMaker() {
     }
   };
 
+  const handleDeleteAllSessions = () => {
+    sessions.forEach(s => deletedSessionsRef.current.add(s.id));
+    setSessions([]);
+    saveSessions([]);
+    startNewSession();
+  };
+
   return (
     <div
       className={`w-full h-[calc(100vh-4rem)] md:h-screen flex overflow-hidden relative transition-colors duration-300 ${isDark ? "bg-[#171717]" : "bg-[#f8f9fa]"
@@ -740,6 +748,7 @@ export default function ProductionPlanMaker() {
         onNewSession={startNewSession}
         onLoadSession={loadSession}
         onDeleteSession={handleDeleteSession}
+        onDeleteAllSessions={handleDeleteAllSessions}
         googleToken={googleToken}
         onLogin={login}
         onLogout={logout}
@@ -827,7 +836,7 @@ export default function ProductionPlanMaker() {
                 }`}
               title="New Chat"
             >
-              <RefreshCw className="w-5 h-5" />
+              <Plus className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -1295,7 +1304,7 @@ export default function ProductionPlanMaker() {
                 disabled={isTyping || isStreaming}
                 className={`flex-1 px-4 py-3 rounded-xl outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-[200px] backdrop-blur-sm ${isDark
                   ? "bg-zinc-900/40 text-gray-100 placeholder-zinc-500"
-                  : "bg-white/60 text-[#133020]"
+                  : "bg-white/60 text-[#133020] placeholder-gray-500"
                   }`}
                 style={{
                   border: isDark

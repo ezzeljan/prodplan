@@ -1,5 +1,6 @@
-import React from 'react';
-import { Plus, Trash2, LogOut, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Trash2, LogOut, User, AlertTriangle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export interface Message {
     id: string;
@@ -58,6 +59,7 @@ interface ChatHistorySidebarProps {
     onNewSession: () => void;
     onLoadSession: (session: ChatSession) => void;
     onDeleteSession: (sessionId: string) => void;
+    onDeleteAllSessions: () => void;
     googleToken: string | null;
     onLogin: () => void;
     onLogout: () => void;
@@ -70,10 +72,12 @@ export default function ChatHistorySidebar({
     onNewSession,
     onLoadSession,
     onDeleteSession,
+    onDeleteAllSessions,
     googleToken,
     onLogin,
     onLogout,
 }: ChatHistorySidebarProps) {
+    const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
     return (
         <div
             className="flex flex-col transition-all duration-300 overflow-hidden flex-shrink-0"
@@ -88,14 +92,25 @@ export default function ChatHistorySidebar({
                     {/* Sidebar Header */}
                     <div className="p-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #046241' }}>
                         <span className="font-semibold text-white text-sm">Chat History</span>
-                        <button
-                            onClick={onNewSession}
-                            className="p-1.5 rounded-lg hover:opacity-70 transition-opacity"
-                            style={{ backgroundColor: '#046241', color: '#FFC370' }}
-                            title="New Chat"
-                        >
-                            <Plus className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {sessions.length > 0 && (
+                                <button
+                                    onClick={() => setShowDeleteAllConfirm(true)}
+                                    className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-red-400 transition-colors"
+                                    title="Delete All History"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                            <button
+                                onClick={onNewSession}
+                                className="p-1.5 rounded-lg hover:opacity-70 transition-opacity"
+                                style={{ backgroundColor: '#046241', color: '#FFC370' }}
+                                title="New Chat"
+                            >
+                                <Plus className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Session List */}
@@ -163,6 +178,53 @@ export default function ChatHistorySidebar({
                     </div>
                 </>
             )}
+            {/* Delete All Confirmation Modal */}
+            <AnimatePresence>
+                {showDeleteAllConfirm && (
+                    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowDeleteAllConfirm(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-sm bg-[#1a3d28] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                        >
+                            <div className="p-6">
+                                <div className="flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-red-500/10 text-red-500">
+                                    <AlertTriangle className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-xl font-semibold text-white mb-2">Delete All History</h3>
+                                <p className="text-white/60">
+                                    Are you sure you want to delete all chat history? This action cannot be undone.
+                                </p>
+                            </div>
+                            <div className="flex border-t border-white/10">
+                                <button
+                                    onClick={() => setShowDeleteAllConfirm(false)}
+                                    className="flex-1 px-4 py-4 text-sm font-medium text-white/70 hover:bg-white/5 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        onDeleteAllSessions();
+                                        setShowDeleteAllConfirm(false);
+                                    }}
+                                    className="flex-1 px-4 py-4 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors border-l border-white/10"
+                                >
+                                    Delete All
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

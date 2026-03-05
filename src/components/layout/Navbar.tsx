@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, User, LogOut } from "lucide-react";
+import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, User, LogOut, AlertTriangle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { motion, AnimatePresence } from "motion/react";
 import { navigation } from "../../data/Navigation";
 import logo from "../../assets/lifewood-logo.png";
 import icon from "../../assets/icon.png";
@@ -15,6 +16,7 @@ const navWithIcons = [
 const Navbar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const { isSignedIn, login, logout } = useAuth();
   const location = useLocation();
 
@@ -87,7 +89,13 @@ const Navbar = () => {
 
           {/* Account Sign In/Out */}
           <button
-            onClick={() => isSignedIn ? logout() : login()}
+            onClick={() => {
+              if (isSignedIn) {
+                setShowSignOutConfirm(true);
+              } else {
+                login();
+              }
+            }}
             className={`flex items-center gap-4 px-3 py-3 w-full rounded-xl transition-colors text-white/70 hover:bg-white/10 hover:text-white`}
             title={!isExpanded ? (isSignedIn ? "Sign Out" : "Sign In") : undefined}
           >
@@ -164,7 +172,11 @@ const Navbar = () => {
 
               <button
                 onClick={() => {
-                  isSignedIn ? logout() : login();
+                  if (isSignedIn) {
+                    setShowSignOutConfirm(true);
+                  } else {
+                    login();
+                  }
                   setMobileOpen(false);
                 }}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-white/70 hover:bg-white/10 hover:text-white w-full text-left"
@@ -176,6 +188,53 @@ const Navbar = () => {
           </div>
         </div>
       )}
+      {/* Sign Out Confirmation Modal */}
+      <AnimatePresence>
+        {showSignOutConfirm && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSignOutConfirm(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-[#133020] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-red-500/10 text-red-500">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">Sign Out</h3>
+                <p className="text-white/60">
+                  Are you sure you want to sign out of your account?
+                </p>
+              </div>
+              <div className="flex border-t border-white/10">
+                <button
+                  onClick={() => setShowSignOutConfirm(false)}
+                  className="flex-1 px-4 py-4 text-sm font-medium text-white/70 hover:bg-white/5 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    logout();
+                    setShowSignOutConfirm(false);
+                  }}
+                  className="flex-1 px-4 py-4 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors border-l border-white/10"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

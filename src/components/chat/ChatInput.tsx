@@ -55,15 +55,15 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 onPaste={onPaste}
                 placeholder="Describe your project..."
                 disabled={disabled || isTyping}
-                className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-[200px]"
+                className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-[200px] placeholder-gray-500"
             />
 
             <button
                 onClick={onSend}
                 disabled={!canSend}
                 className={`p-3 mb-0.5 rounded-xl transition-all shadow-sm ${canSend
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-100 text-gray-300 cursor-not-allowed'
                     }`}
             >
                 <Send className="w-5 h-5" />
