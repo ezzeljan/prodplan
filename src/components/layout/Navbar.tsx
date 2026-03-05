@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History } from "lucide-react";
+import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, User, LogOut } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 import { navigation } from "../../data/Navigation";
 import logo from "../../assets/lifewood-logo.png";
 import icon from "../../assets/icon.png";
@@ -14,6 +15,7 @@ const navWithIcons = [
 const Navbar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isSignedIn, login, logout } = useAuth();
   const location = useLocation();
 
   return (
@@ -69,8 +71,9 @@ const Navbar = () => {
           })}
         </div>
 
-        {/* Toggle History Sidebar */}
-        <div className="p-3 border-t border-white/10 mt-auto">
+        {/* Bottom Actions */}
+        <div className="p-3 border-t border-white/10 mt-auto flex flex-col gap-2">
+          {/* Toggle History Sidebar */}
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('toggle-chat-history'))}
             className={`flex items-center gap-4 px-3 py-3 w-full rounded-xl transition-colors text-white/70 hover:bg-white/10 hover:text-white`}
@@ -79,6 +82,20 @@ const Navbar = () => {
             <div className="flex-shrink-0"><History className="w-5 h-5" /></div>
             <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
               Chat History
+            </span>
+          </button>
+
+          {/* Account Sign In/Out */}
+          <button
+            onClick={() => isSignedIn ? logout() : login()}
+            className={`flex items-center gap-4 px-3 py-3 w-full rounded-xl transition-colors text-white/70 hover:bg-white/10 hover:text-white`}
+            title={!isExpanded ? (isSignedIn ? "Sign Out" : "Sign In") : undefined}
+          >
+            <div className="flex-shrink-0">
+              {isSignedIn ? <LogOut className="w-5 h-5" /> : <User className="w-5 h-5" />}
+            </div>
+            <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
+              {isSignedIn ? "Sign Out" : "Sign In"}
             </span>
           </button>
         </div>
@@ -142,6 +159,19 @@ const Navbar = () => {
                   </Link>
                 );
               })}
+
+              <div className="w-full h-px bg-white/10 my-2"></div>
+
+              <button
+                onClick={() => {
+                  isSignedIn ? logout() : login();
+                  setMobileOpen(false);
+                }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-white/70 hover:bg-white/10 hover:text-white w-full text-left"
+              >
+                {isSignedIn ? <LogOut className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                {isSignedIn ? "Sign Out" : "Sign In"}
+              </button>
             </div>
           </div>
         </div>

@@ -1,14 +1,15 @@
 import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, LogOut, User } from 'lucide-react';
 
 export interface Message {
     id: string;
     role: 'agent' | 'user';
     content: string;
-    type?: 'text' | 'file' | 'preview';
+    type?: 'text' | 'file' | 'preview' | 'google-sheet';
     fileData?: {
         name: string;
-        buffer: any;
+        buffer?: any;
+        url?: string;
     };
     previewData?: any;
 }
@@ -57,6 +58,9 @@ interface ChatHistorySidebarProps {
     onNewSession: () => void;
     onLoadSession: (session: ChatSession) => void;
     onDeleteSession: (sessionId: string) => void;
+    googleToken: string | null;
+    onLogin: () => void;
+    onLogout: () => void;
 }
 
 export default function ChatHistorySidebar({
@@ -66,6 +70,9 @@ export default function ChatHistorySidebar({
     onNewSession,
     onLoadSession,
     onDeleteSession,
+    googleToken,
+    onLogin,
+    onLogout,
 }: ChatHistorySidebarProps) {
     return (
         <div
@@ -125,6 +132,34 @@ export default function ChatHistorySidebar({
                                 </button>
                             </div>
                         ))}
+                    </div>
+
+                    {/* Account Section */}
+                    <div className="p-4" style={{ borderTop: '1px solid #046241' }}>
+                        {googleToken ? (
+                            <button
+                                onClick={onLogout}
+                                className="w-full flex items-center justify-between p-2 rounded-lg transition-colors hover:bg-white/10"
+                                style={{ color: '#FFB347' }}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-emerald-700/50 flex items-center justify-center">
+                                        <User className="w-3 h-3 text-emerald-300" />
+                                    </div>
+                                    <span className="text-sm font-medium text-white">Drive Connected</span>
+                                </div>
+                                <LogOut className="w-4 h-4 opacity-70 hover:opacity-100" />
+                            </button>
+                        ) : (
+                            <button
+                                onClick={onLogin}
+                                className="w-full flex items-center justify-center gap-2 p-2 rounded-lg transition-colors bg-white/10 hover:bg-white/20"
+                                style={{ color: '#FFC370' }}
+                            >
+                                <User className="w-4 h-4" />
+                                <span className="text-sm font-medium">Connect Drive</span>
+                            </button>
+                        )}
                     </div>
                 </>
             )}

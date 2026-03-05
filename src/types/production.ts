@@ -4,10 +4,11 @@ export interface Message {
     id: string;
     role: 'agent' | 'user';
     content: string;
-    type?: 'text' | 'file' | 'preview';
+    type?: 'text' | 'file' | 'preview' | 'google-sheet';
     fileData?: {
         name: string;
-        buffer: ExcelJS.Buffer;
+        buffer?: ExcelJS.Buffer;
+        url?: string;
     };
     previewData?: ProjectData;
     attachment?: {

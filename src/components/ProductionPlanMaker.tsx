@@ -30,14 +30,15 @@ import {
 } from "../types/production";
 import { generateExcelFile } from "../utils/excelGenerator";
 import { handleFileProcessing } from "../utils/fileHandlers";
-import ChatHistorySidebar, {
+import {
   ChatSession,
   loadSessions,
   saveSessions,
   generateSessionTitle,
 } from "./chat/ChatHistorySidebar";
-import { useGoogleLogin } from '@react-oauth/google';
+import ChatHistorySidebar from "./chat/ChatHistorySidebar";
 import { uploadExcelToGoogleDrive } from '../utils/googleDriveService';
+import { useAuth } from "../contexts/AuthContext";
 
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -254,12 +255,7 @@ export default function ProductionPlanMaker() {
   );
   const [rejectedMsgIds, setRejectedMsgIds] = useState<Set<string>>(new Set());
 
-  const [googleToken, setGoogleToken] = useState<string | null>(null);
-
-  const login = useGoogleLogin({
-    onSuccess: (codeResponse) => setGoogleToken(codeResponse.access_token),
-    scope: 'https://www.googleapis.com/auth/drive.file',
-  });
+  const { googleToken, login, logout } = useAuth();
 
   useEffect(() => {
     if (isDark) {
@@ -545,7 +541,7 @@ export default function ProductionPlanMaker() {
                   googleToken
                 );
 
-                const successText = `${generatedText}I've generated the production plan for **${projectData.name}** and uploaded it to your Google Drive! You can view the Google Sheet here: [View Google Sheet](${sheetUrl})`;
+                const successText = `${generatedText}I've generated the production plan for **${projectData.name}** and uploaded it to your Google Drive!`;
 
                 setMessages((prev) => [
                   ...prev,
@@ -553,6 +549,11 @@ export default function ProductionPlanMaker() {
                     id: msgId,
                     role: "agent",
                     content: "", // Content will be typed
+                    type: "google-sheet",
+                    fileData: {
+                      name: "View Google Sheet",
+                      url: sheetUrl,
+                    }
                   },
                 ]);
                 typewriterEffect(successText, msgId);
@@ -739,6 +740,9 @@ export default function ProductionPlanMaker() {
         onNewSession={startNewSession}
         onLoadSession={loadSession}
         onDeleteSession={handleDeleteSession}
+        googleToken={googleToken}
+        onLogin={login}
+        onLogout={logout}
       />
 
       {/* ── Main Chat ── */}
@@ -802,23 +806,10 @@ export default function ProductionPlanMaker() {
           </div>
           <div className="flex gap-1 items-center">
             <button
-              onClick={() => {
-                if (!googleToken) login();
-                else setGoogleToken(null);
-              }}
-              className={`px-3 py-1.5 mr-2 text-xs font-semibold rounded-full shrink-0 flex items-center gap-2 transition-colors ${googleToken
-                  ? (isDark ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-[#046241]/10 text-[#046241] border border-[#046241]/30')
-                  : (isDark ? 'hover:bg-white/10 text-gray-300 border border-transparent' : 'hover:bg-white/40 hover:shadow-sm text-[#133020] border border-transparent')
-                }`}
-              title={googleToken ? "Signed in to Google. Click to sign out" : "Sign in to Google Drive"}
-            >
-              {googleToken ? 'Drive Connected' : 'Connect Drive'}
-            </button>
-            <button
               onClick={() => setIsDark(!isDark)}
               className={`p-2 rounded-full transition-colors ${isDark
-                  ? "hover:bg-white/10 text-gray-300"
-                  : "hover:bg-white/40 hover:shadow-sm text-[#133020]"
+                ? "hover:bg-white/10 text-gray-300"
+                : "hover:bg-white/40 hover:shadow-sm text-[#133020]"
                 }`}
               title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
@@ -831,8 +822,8 @@ export default function ProductionPlanMaker() {
             <button
               onClick={startNewSession}
               className={`p-2 rounded-full transition-colors ${isDark
-                  ? "hover:bg-white/10 text-gray-300"
-                  : "hover:bg-white/40 hover:shadow-sm text-[#133020]"
+                ? "hover:bg-white/10 text-gray-300"
+                : "hover:bg-white/40 hover:shadow-sm text-[#133020]"
                 }`}
               title="New Chat"
             >
@@ -997,8 +988,8 @@ export default function ProductionPlanMaker() {
                       ) : (
                         <div
                           className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isDark
-                              ? "bg-white/5 border-white/10 hover:bg-white/10"
-                              : "bg-white/10 border-white/20 hover:bg-white/20"
+                            ? "bg-white/5 border-white/10 hover:bg-white/10"
+                            : "bg-white/10 border-white/20 hover:bg-white/20"
                             }`}
                           onClick={() =>
                             downloadAttachment(
@@ -1068,40 +1059,72 @@ export default function ProductionPlanMaker() {
                   </div>
                 )}
 
-                {/* Download Section */}
-                {msg.type === "file" && msg.fileData && !isStreaming && (
-                  <button
-                    onClick={() =>
-                      handleDownload(msg.fileData!.name, msg.fileData!.buffer)
-                    }
-                    className="flex items-center gap-3 p-4 rounded-xl w-full transition-opacity text-left hover:opacity-90"
-                    style={{
-                      backgroundColor: "#FFC370",
-                      border: "1px solid #FFB347",
-                    }}
-                  >
-                    <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: "rgba(255,255,255,0.3)" }}
+                {/* Download Section or External Links */}
+                {(msg.type === "file" || msg.type === "google-sheet") && msg.fileData && !isStreaming && (
+                  msg.type === "google-sheet" ? (
+                    <a
+                      href={msg.fileData.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-4 rounded-xl w-full transition-opacity text-left hover:opacity-90 block"
+                      style={{
+                        backgroundColor: "#FFC370",
+                        border: "1px solid #FFB347",
+                        textDecoration: "none"
+                      }}
                     >
-                      <FileSpreadsheet
-                        className="w-6 h-6"
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: "rgba(255,255,255,0.3)" }}
+                      >
+                        <FileSpreadsheet
+                          className="w-6 h-6"
+                          style={{ color: "#133020" }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-sm" style={{ color: "#133020" }}>
+                          {msg.fileData.name}
+                        </p>
+                        <p className="text-xs" style={{ color: "#046241" }}>
+                          Click to open in a new tab
+                        </p>
+                      </div>
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        handleDownload(msg.fileData!.name, msg.fileData!.buffer)
+                      }
+                      className="flex items-center gap-3 p-4 rounded-xl w-full transition-opacity text-left hover:opacity-90"
+                      style={{
+                        backgroundColor: "#FFC370",
+                        border: "1px solid #FFB347",
+                      }}
+                    >
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: "rgba(255,255,255,0.3)" }}
+                      >
+                        <FileSpreadsheet
+                          className="w-6 h-6"
+                          style={{ color: "#133020" }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium" style={{ color: "#133020" }}>
+                          {msg.fileData!.name}
+                        </p>
+                        <p className="text-xs" style={{ color: "#046241" }}>
+                          Click to download
+                        </p>
+                      </div>
+                      <Download
+                        className="w-5 h-5 shrink-0"
                         style={{ color: "#133020" }}
                       />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium" style={{ color: "#133020" }}>
-                        {msg.fileData.name}
-                      </p>
-                      <p className="text-xs" style={{ color: "#046241" }}>
-                        Click to download
-                      </p>
-                    </div>
-                    <Download
-                      className="w-5 h-5"
-                      style={{ color: "#133020" }}
-                    />
-                  </button>
+                    </button>
+                  )
                 )}
               </div>
             </div>
@@ -1155,49 +1178,65 @@ export default function ProductionPlanMaker() {
               <h2
                 className={`text-3xl md:text-5xl font-normal mb-8 tracking-tight text-center transition-colors duration-300 ${isDark ? "text-gray-100" : "text-[#133020]"}`}
               >
-                What's on the agenda today?
+                {googleToken ? "What's on the agenda today?" : "Welcome to Production Plan Agent"}
               </h2>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {[
-                  {
-                    label: "📦 Manufacturing Plan",
-                    prompt: "I need a manufacturing production plan.",
-                  },
-                  {
-                    label: "⏱️ Hours Tracking",
-                    prompt: "I need an hours tracking production plan.",
-                  },
-                  {
-                    label: "💰 Revenue Target",
-                    prompt: "I need a revenue target production plan.",
-                  },
-                  {
-                    label: "👥 Team Output",
-                    prompt: "I need a team output production plan.",
-                  },
-                ].map((chip) => (
+              {!googleToken ? (
+                <div className="flex flex-col items-center gap-4">
+                  <p className={`text-lg transition-colors mb-4 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                    Please sign in with Google to start planning and saving to Drive.
+                  </p>
                   <button
-                    key={chip.label}
-                    onClick={() => {
-                      setInputValue(chip.prompt);
-                      textareaRef.current?.focus();
-                    }}
-                    className={`px-4 py-2 rounded-full text-sm font-medium border transition-all hover:scale-105 active:scale-95 ${isDark
+                    onClick={() => login()}
+                    className="flex items-center gap-3 px-6 py-3 rounded-full font-semibold text-white shadow-lg transition-all hover:scale-105 active:scale-95"
+                    style={{ backgroundColor: "#046241" }}
+                  >
+                    <UserIcon className="w-5 h-5" />
+                    Sign in with Google
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {[
+                    {
+                      label: "📦 Manufacturing Plan",
+                      prompt: "I need a manufacturing production plan.",
+                    },
+                    {
+                      label: "⏱️ Hours Tracking",
+                      prompt: "I need an hours tracking production plan.",
+                    },
+                    {
+                      label: "💰 Revenue Target",
+                      prompt: "I need a revenue target production plan.",
+                    },
+                    {
+                      label: "👥 Team Output",
+                      prompt: "I need a team output production plan.",
+                    },
+                  ].map((chip) => (
+                    <button
+                      key={chip.label}
+                      onClick={() => {
+                        setInputValue(chip.prompt);
+                        textareaRef.current?.focus();
+                      }}
+                      className={`px-4 py-2 rounded-full text-sm font-medium border transition-all hover:scale-105 active:scale-95 ${isDark
                         ? "bg-zinc-800/80 border-white/10 text-gray-200 hover:bg-zinc-700 hover:border-white/20"
                         : "bg-white/80 border-[#e5e0d5] text-[#133020] hover:bg-white hover:border-[#046241]"
-                      }`}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
+                        }`}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           <div
             className={`w-full max-w-4xl p-2 rounded-3xl shadow-2xl space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${isDark
-                ? "bg-zinc-800/60 border-white/10"
-                : "bg-white/50 border-white/50"
-              }`}
+              ? "bg-zinc-800/60 border-white/10"
+              : "bg-white/50 border-white/50"
+              } ${!googleToken ? "opacity-50 pointer-events-none grayscale" : ""}`}
           >
             {fileName && (
               <div
@@ -1255,8 +1294,8 @@ export default function ProductionPlanMaker() {
                 placeholder="Describe your project..."
                 disabled={isTyping || isStreaming}
                 className={`flex-1 px-4 py-3 rounded-xl outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-[200px] backdrop-blur-sm ${isDark
-                    ? "bg-zinc-900/40 text-gray-100 placeholder-zinc-500"
-                    : "bg-white/60 text-[#133020]"
+                  ? "bg-zinc-900/40 text-gray-100 placeholder-zinc-500"
+                  : "bg-white/60 text-[#133020]"
                   }`}
                 style={{
                   border: isDark

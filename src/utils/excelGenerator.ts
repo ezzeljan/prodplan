@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { eachDayOfInterval, isValid, isSameDay } from 'date-fns';
+import { eachDayOfInterval, isValid, isSameDay, differenceInCalendarDays } from 'date-fns';
 import { ProjectData, ActualDataItem } from '../types/production';
 
 export const getColumnLetter = (colIndex: number): string => {
@@ -30,8 +30,8 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     const scheduleItems: any[] = [];
 
     days.forEach(day => {
-        // Calculate days elapsed from start date
-        const daysElapsed = Math.floor((day.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        // Calculate days elapsed from start date (using calendar days to avoid timezone shifts)
+        const daysElapsed = Math.max(0, differenceInCalendarDays(day, start));
         const weekNum = Math.floor(daysElapsed / 7) + 1;
         const weekString = `Week ${weekNum}`;
 
