@@ -130,8 +130,6 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     // Target, Actual, Variance and any other user-defined dailyColumns.
     const baseKeyCols = [
         { header: 'Date', key: 'date', width: 15 },
-        { header: 'Day', key: 'day', width: 15 },
-        { header: 'Week', key: 'week', width: 10 },
         { header: 'Operator', key: 'name', width: 20 },
     ];
 
@@ -162,6 +160,9 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     const firstSheetName = sanitizeSheetName(`Daily Production of ${projectData.name}`);
     const rawDataSheet = workbook.addWorksheet(firstSheetName);
     rawDataSheet.columns = [...baseKeyCols, ...dynamicKeyCols];
+
+    // Note: numeric formatting will be applied per-cell or via conditional formatting
+    // so whole numbers keep integer formatting while decimals show two places.
 
     const totalCols = baseKeyCols.length + dynamicKeyCols.length;
     const lastColLetter = getColumnLetter(totalCols);
@@ -217,8 +218,6 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
 
     const tableCols = [
         { name: 'Date', filterButton: true },
-        { name: 'Day', filterButton: true },
-        { name: 'Week', filterButton: true },
         { name: 'Operator', filterButton: true },
         ...dynamicKeyCols.map(col => ({
             name: col.header,
@@ -238,8 +237,6 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
             const rowIndex = firstDataRowIndex + index;
             const row: any[] = [
                 item.date,
-                item.dayName,
-                item.weekString,
                 item.name,
             ];
 
@@ -254,7 +251,8 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
                     const actualVal = typeof item.actual === 'number' ? item.actual : 0;
                     row.push(item.target - actualVal);
                 } else if (col.formula) {
-                    row.push({ formula: col.formula.replace(/{rowIndex}/g, rowIndex.toString()) });
+                    const rawF = col.formula.replace(/{rowIndex}/g, rowIndex.toString()).replace(/^\s*=+/, '');
+                    row.push({ formula: rawF });
                 } else {
                     row.push(item[col.key]);
                 }
@@ -264,8 +262,33 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         }),
     });
 
-    rawDataSheet.getColumn(2).hidden = true;
-    rawDataSheet.getColumn(3).hidden = true;
+    // Day/Week columns removed per user request; no hidden columns needed.
+
+    // Apply per-cell numeric formatting for table rows so whole numbers show
+    // without decimals while decimals show two places. Also apply percent
+    // formatting when header indicates a rate/percentage.
+    itemsWithTargets.forEach((_, idx) => {
+        const rowIndex = firstDataRowIndex + idx;
+        dynamicKeyCols.forEach((col, dIdx) => {
+            const colIndex = baseKeyCols.length + dIdx + 1; // 1-based
+            const cell = rawDataSheet.getRow(rowIndex).getCell(colIndex);
+            const headerLower = (col.header || '').toLowerCase();
+            const val = cell.value;
+            try {
+                if (typeof val === 'number') {
+                    if (headerLower.includes('%') || headerLower.includes('rate')) {
+                        cell.numFmt = '0.00%';
+                    } else if (Number.isInteger(val)) {
+                        cell.numFmt = '#,##0';
+                    } else {
+                        cell.numFmt = '0.00';
+                    }
+                }
+            } catch (e) {
+                // ignore
+            }
+        });
+    });
 
     const tableRowCount = itemsWithTargets.length;
     const safeRowCount = Math.max(tableRowCount, 1);
@@ -288,6 +311,22 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
             const lookupKey = columnName.trim().toLowerCase();
             return columnRangeMap[lookupKey] || match;
         });
+    };
+
+    const sanitizeFormula = (f?: string) => {
+        if (!f) return undefined;
+        let out = f.replace(/^\s*=+/, '');
+        // Replace accidental table-sheet column full-column refs like DailyProductionTable!A:A
+        // with explicit sheet ranges covering the data rows.
+        try {
+            out = out.replace(/DailyProductionTable!([A-Z]+):([A-Z]+)/gi, (_m, c1, c2) => {
+                return `${firstSheetFormulaName}!${c1}${firstDataRowIndex}:${c2}${lastDataRowIndex}`;
+            });
+            out = out.replace(/DailyProductionTable!([A-Z]+):([A-Z]+)/gi, (_m, c1, c2) => `${firstSheetFormulaName}!${c1}${firstDataRowIndex}:${c2}${lastDataRowIndex}`);
+        } catch (e) {
+            // ignore if indices not available
+        }
+        return out;
     };
 
     const findRangeByKeywords = (keywords: string[]) => {
@@ -335,6 +374,95 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     const actualTimeFormula = buildSumFormula(actualTimeRange);
     const planTaskFormula = buildSumFormula(planTaskRange);
     const actualTaskFormula = buildSumFormula(actualTaskRange);
+
+    // Fallback: if no explicit time ranges found, use task ranges so Summary shows values
+    const effectivePlanTimeFormula = planTimeFormula || planTaskFormula;
+    const effectiveActualTimeFormula = actualTimeFormula || actualTaskFormula;
+
+    // Heuristics: derive task/time values from projectData when formulas/ranges are missing.
+    const parseDurationFromText = (text?: string): number | undefined => {
+        if (!text) return undefined;
+        const txt = text.toLowerCase();
+        // look for seconds
+        const secMatch = txt.match(/(\d+(?:\.\d+)?)\s*(?:sec|secs|seconds|s)\b/);
+        if (secMatch) return parseFloat(secMatch[1]);
+        const minMatch = txt.match(/(\d+(?:\.\d+)?)\s*(?:min|mins|minutes|m)\b/);
+        if (minMatch) return parseFloat(minMatch[1]) * 60;
+        const hrMatch = txt.match(/(\d+(?:\.\d+)?)\s*(?:hr|hrs|hour|hours|h)\b/);
+        if (hrMatch) return parseFloat(hrMatch[1]) * 3600;
+        return undefined;
+    };
+
+    const unitLower = (projectData.unit || '').toLowerCase();
+    const overviewText = `${projectData.overview || ''} ${projectData.expectedOutputPerOperator || ''}`;
+    const sampleItemDurationSec = parseDurationFromText(overviewText) || parseDurationFromText(projectData.outputCadence);
+    let derivedTaskCount: number | undefined;
+    let derivedTimeMinutes: number | undefined;
+
+    // Prefer an explicit timeMinutes field on projectData if provided
+    if (typeof projectData.timeMinutes === 'number') {
+        derivedTimeMinutes = projectData.timeMinutes;
+        if (sampleItemDurationSec) {
+            derivedTaskCount = Math.round((derivedTimeMinutes * 60) / sampleItemDurationSec);
+        }
+    }
+
+    if (derivedTimeMinutes === undefined && typeof projectData.goal === 'number') {
+        if (unitLower.includes('min') || unitLower.includes('minute')) {
+            derivedTimeMinutes = projectData.goal;
+            if (sampleItemDurationSec) {
+                derivedTaskCount = Math.round((derivedTimeMinutes * 60) / sampleItemDurationSec);
+            }
+        } else if (unitLower.includes('sec') || unitLower.includes('second')) {
+            // goal is in seconds
+            if (sampleItemDurationSec) {
+                derivedTaskCount = Math.round(projectData.goal / sampleItemDurationSec);
+                derivedTimeMinutes = (projectData.goal / 60);
+            }
+        } else if (unitLower.includes('video') || unitLower.includes('unit') || unitLower === '') {
+            // treat goal as task count
+            derivedTaskCount = projectData.goal;
+            if (sampleItemDurationSec) {
+                derivedTimeMinutes = Math.round((derivedTaskCount * sampleItemDurationSec) / 60 * 100) / 100;
+            }
+        }
+    }
+
+    // If there is a task-sum formula and a sample duration, derive time formulas
+    let computedPlanTimeFormula: string | undefined = undefined;
+    let computedActualTimeFormula: string | undefined = undefined;
+    if (!planTimeFormula) {
+        if (planTaskFormula && sampleItemDurationSec) {
+            computedPlanTimeFormula = `${planTaskFormula}*${(sampleItemDurationSec / 60)}`;
+        } else if (planTaskFormula) {
+            computedPlanTimeFormula = planTaskFormula;
+        }
+    } else {
+        computedPlanTimeFormula = planTimeFormula;
+    }
+
+    if (!actualTimeFormula) {
+        if (actualTaskFormula && sampleItemDurationSec) {
+            computedActualTimeFormula = `${actualTaskFormula}*${(sampleItemDurationSec / 60)}`;
+        } else if (actualTaskFormula) {
+            computedActualTimeFormula = actualTaskFormula;
+        }
+    } else {
+        computedActualTimeFormula = actualTimeFormula;
+    }
+
+    // If plan formula included a multiplier but actual formula didn't, apply same multiplier to actual
+    try {
+        if (computedPlanTimeFormula && computedActualTimeFormula && planTaskFormula && actualTaskFormula) {
+            const multMatch = computedPlanTimeFormula.match(/\*(\d+(?:\.\d+)?)/);
+            if (multMatch && !/\*/.test(computedActualTimeFormula)) {
+                const mult = multMatch[1];
+                computedActualTimeFormula = `${actualTaskFormula}*${mult}`;
+            }
+        }
+    } catch (e) {}
+
+    
 
     if (tableRowCount > 0 && dynamicKeyCols.length > 0) {
         const lastDataRow = firstDataRowIndex + tableRowCount - 1;
@@ -418,6 +546,9 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     });
     headerRow4.height = 40;
 
+    // Numeric formatting for Production Plan will be handled with conditional
+    // formatting so whole numbers remain integer-formatted and decimals show two places.
+
     // Data Rows
     uniqueDates.forEach((dateIso, index) => {
         const rowIndex = index + 5;
@@ -427,12 +558,39 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
             const cell = row.getCell(colIdx + 1);
             if (col.key === 'date') {
                 cell.value = dateObj;
+            } else if (col.key && col.key.toLowerCase() === 'target') {
+                // Pull total target for this date from the DailyProductionTable using a DATE literal
+                const makeDateExpr = (d: Date) => `DATE(${d.getFullYear()},${d.getMonth() + 1},${d.getDate()})`;
+                if (targetRange && dateRange) {
+                    // match exact date using "="&DATE(...) to avoid range/criteria issues
+                    const f = `SUMIFS(${targetRange},${dateRange},"="&${makeDateExpr(dateObj)})`;
+                    cell.value = { formula: sanitizeFormula(f) };
+                }
+            } else if (col.key && col.key.toLowerCase() === 'actual') {
+                // Pull total actual for this date from the DailyProductionTable using a DATE literal
+                const makeDateExpr = (d: Date) => `DATE(${d.getFullYear()},${d.getMonth() + 1},${d.getDate()})`;
+                if (actualRange && dateRange) {
+                    const f = `SUMIFS(${actualRange},${dateRange},"="&${makeDateExpr(dateObj)})`;
+                    cell.value = { formula: sanitizeFormula(f) };
+                }
+            } else if (col.key && col.key.toLowerCase() === 'variance') {
+                // Variance = Target - Actual within this plan sheet row
+                const targetColLetter = getColumnLetter(colIdx); // target is previous columns may vary; use relative
+                const actualColLetter = getColumnLetter(colIdx + 1);
+                // To be safe, compute by finding target/actual column indices in dynamicColumns
+                const targetIndex = dynamicColumns.findIndex(dc => dc.key && dc.key.toLowerCase() === 'target');
+                const actualIndex = dynamicColumns.findIndex(dc => dc.key && dc.key.toLowerCase() === 'actual');
+                const tLetter = targetIndex >= 0 ? getColumnLetter(targetIndex + 1) : null;
+                const aLetter = actualIndex >= 0 ? getColumnLetter(actualIndex + 1) : null;
+                if (tLetter && aLetter) {
+                    const f = `IFERROR(${tLetter}${rowIndex}-${aLetter}${rowIndex},0)`;
+                    cell.value = { formula: sanitizeFormula(f) };
+                }
             } else if (col.formula) {
                 const convertedFormula = convertTableFormula(col.formula);
                 if (convertedFormula) {
-                    cell.value = {
-                        formula: convertedFormula.replace(/{rowIndex}/g, rowIndex.toString()),
-                    };
+                    const f = convertedFormula.replace(/{rowIndex}/g, rowIndex.toString());
+                    cell.value = { formula: sanitizeFormula(f) };
                 }
             }
             cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -451,18 +609,19 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         const colLetter = getColumnLetter(colIdx + 1);
         const isRate = col.header.toLowerCase().includes('rate') || col.header.toLowerCase().includes('%');
         if (col.key !== 'week' && !isRate) {
-            cell.value = { formula: `SUM(${colLetter}5:${colLetter}${totalRowIndex - 1})` };
+            const f = `SUM(${colLetter}5:${colLetter}${totalRowIndex - 1})`;
+            cell.value = { formula: sanitizeFormula(f) };
         }
         cell.border = { top: { style: 'double' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
     });
 
-    // Plan Conditional Formatting
+    // Plan Conditional Formatting: apply to numeric area starting at column B (Target)
     sheetPlan.addConditionalFormatting({
-        ref: `C5:${planLastColLetter}${totalRowIndex}`,
+        ref: `B5:${planLastColLetter}${totalRowIndex}`,
         rules: [
-            { priority: 1, type: 'expression', formulae: ['MOD(C5,1)=0'], style: { numFmt: '#,##0' } },
-            { priority: 2, type: 'expression', formulae: ['MOD(C5,1)<>0'], style: { numFmt: '#,##0.00' } },
+            { priority: 1, type: 'expression', formulae: ['MOD(B5,1)=0'], style: { numFmt: '#,##0' } },
+            { priority: 2, type: 'expression', formulae: ['MOD(B5,1)<>0'], style: { numFmt: '#,##0.00' } },
         ],
     });
 
@@ -518,16 +677,17 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
 
         if (targetRange && dateRange) {
             const tgtFormula = `SUMIFS(${targetRange},${dateRange},">="&${makeDateExpr(minD)},${dateRange},"<="&${makeDateExpr(maxD)})`;
-            row.getCell(2).value = { formula: tgtFormula };
+            row.getCell(2).value = { formula: sanitizeFormula(tgtFormula) };
         }
         if (actualRange && dateRange) {
             const actFormula = `SUMIFS(${actualRange},${dateRange},">="&${makeDateExpr(minD)},${dateRange},"<="&${makeDateExpr(maxD)})`;
-            row.getCell(3).value = { formula: actFormula };
+            row.getCell(3).value = { formula: sanitizeFormula(actFormula) };
         }
         // variance = target - actual
         const colT = getColumnLetter(2);
         const colA = getColumnLetter(3);
-        row.getCell(4).value = { formula: `IFERROR(${colT}${rIdx}-${colA}${rIdx},0)` };
+            const f = `IFERROR(${colT}${rIdx}-${colA}${rIdx},0)`;
+            row.getCell(4).value = { formula: sanitizeFormula(f) };
     });
 
     // Add a table style area for the weekly pivot
@@ -539,6 +699,19 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         columns: pivotCols.map(c => ({ name: c, filterButton: true })),
         rows: [],
     });
+
+    // Conditional formatting for weekly pivot numeric columns: integers show without decimals
+    if (uniqueWeeks.length > 0) {
+        const pivotDataStart = 3;
+        const pivotDataEnd = 2 + uniqueWeeks.length;
+        sheetPivot.addConditionalFormatting({
+            ref: `B${pivotDataStart}:${pivotLastColLetter}${pivotDataEnd}`,
+            rules: [
+                { priority: 1, type: 'expression', formulae: [`MOD(B${pivotDataStart},1)=0`], style: { numFmt: '#,##0' } },
+                { priority: 2, type: 'expression', formulae: [`MOD(B${pivotDataStart},1)<>0`], style: { numFmt: '#,##0.00' } },
+            ],
+        });
+    }
 
     // Block 2: Output per operator (summary across whole period)
     const opStartRow = uniqueWeeks.length + 5;
@@ -562,17 +735,27 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
             r.getCell(1).value = res;
             if (targetRange && dateRange && nameRange) {
                 const tForm = `SUMIFS(${targetRange},${nameRange},"=${res}")`;
-                r.getCell(2).value = { formula: tForm };
+                    r.getCell(2).value = { formula: sanitizeFormula(tForm) };
             }
             if (actualRange && nameRange) {
                 const aForm = `SUMIFS(${actualRange},${nameRange},"=${res}")`;
-                r.getCell(3).value = { formula: aForm };
+                r.getCell(3).value = { formula: sanitizeFormula(aForm) };
             }
             const colTletter = getColumnLetter(2);
             const colAletter = getColumnLetter(3);
             const rowNum = opStartRow + 2 + idx;
-            r.getCell(4).value = { formula: `IFERROR(${colAletter}${rowNum}/${colTletter}${rowNum},0)` };
+            r.getCell(4).value = { formula: sanitizeFormula(`IFERROR(${colAletter}${rowNum}/${colTletter}${rowNum},0)`) };
             r.getCell(4).numFmt = '0.00%';
+        });
+        // Apply conditional formatting to operator totals (columns B and C)
+        const opsStart = opStartRow + 2;
+        const opsEnd = opStartRow + 1 + projectData.resources.length;
+        sheetPivot.addConditionalFormatting({
+            ref: `B${opsStart}:C${opsEnd}`,
+            rules: [
+                { priority: 1, type: 'expression', formulae: [`MOD(B${opsStart},1)=0`], style: { numFmt: '#,##0' } },
+                { priority: 2, type: 'expression', formulae: [`MOD(B${opsStart},1)<>0`], style: { numFmt: '#,##0.00' } },
+            ],
         });
     }
 
@@ -594,15 +777,26 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
 
     const totalTargetCell = sheetPivot.getCell(compareRow + 2, 1);
     totalTargetCell.value = 'Total Target';
-    if (targetRange) sheetPivot.getCell(compareRow + 2, 2).value = { formula: `SUM(${targetRange})` };
+    if (targetRange) sheetPivot.getCell(compareRow + 2, 2).value = { formula: sanitizeFormula(`SUM(${targetRange})`) };
     const totalActualCell = sheetPivot.getCell(compareRow + 3, 1);
     totalActualCell.value = 'Total Actual';
-    if (actualRange) sheetPivot.getCell(compareRow + 3, 2).value = { formula: `SUM(${actualRange})` };
+    if (actualRange) sheetPivot.getCell(compareRow + 3, 2).value = { formula: sanitizeFormula(`SUM(${actualRange})`) };
     const pivotCompletionCell = sheetPivot.getCell(compareRow + 4, 1);
     pivotCompletionCell.value = 'Completion Rate';
     const tCol = getColumnLetter(2);
     const compRowNum = compareRow + 4;
-    sheetPivot.getCell(compareRow + 4, 2).value = { formula: `IFERROR(${tCol}${compareRow + 3}/${tCol}${compareRow + 2},0)` };
+    sheetPivot.getCell(compareRow + 4, 2).value = { formula: sanitizeFormula(`IFERROR(${tCol}${compareRow + 3}/${tCol}${compareRow + 2},0)`) };
+    // Format completion rate as percent
+    sheetPivot.getCell(compareRow + 4, 2).numFmt = '0.00%';
+
+    // Conditional formatting for compare totals (Total Target / Total Actual)
+    sheetPivot.addConditionalFormatting({
+        ref: `B${compareRow + 2}:B${compareRow + 3}`,
+        rules: [
+            { priority: 1, type: 'expression', formulae: [`MOD(B${compareRow + 2},1)=0`], style: { numFmt: '#,##0' } },
+            { priority: 2, type: 'expression', formulae: [`MOD(B${compareRow + 2},1)<>0`], style: { numFmt: '#,##0.00' } },
+        ],
+    });
 
     // --- Sheet 4: Dashboard Metrics ---
     // --- Sheet 4: Summary ---
@@ -651,23 +845,28 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         '',
     ]);
     const summaryRowIndex = summaryRow.number;
-    if (planTimeFormula) {
-        summaryRow.getCell(3).value = { formula: planTimeFormula };
+    if (computedPlanTimeFormula) {
+        summaryRow.getCell(3).value = { formula: sanitizeFormula(computedPlanTimeFormula) };
+    } else if (derivedTimeMinutes !== undefined) {
+        // show derived minutes as a number
+        summaryRow.getCell(3).value = derivedTimeMinutes;
     } else {
         summaryRow.getCell(3).value = 0;
     }
     if (planTaskFormula) {
-        summaryRow.getCell(4).value = { formula: planTaskFormula };
+        summaryRow.getCell(4).value = { formula: sanitizeFormula(planTaskFormula) };
+    } else if (derivedTaskCount !== undefined) {
+        summaryRow.getCell(4).value = derivedTaskCount;
     } else {
         summaryRow.getCell(4).value = 0;
     }
-    if (actualTimeFormula) {
-        summaryRow.getCell(5).value = { formula: actualTimeFormula };
+    if (computedActualTimeFormula) {
+        summaryRow.getCell(5).value = { formula: sanitizeFormula(computedActualTimeFormula) };
     } else {
         summaryRow.getCell(5).value = 0;
     }
     if (actualTaskFormula) {
-        summaryRow.getCell(6).value = { formula: actualTaskFormula };
+        summaryRow.getCell(6).value = { formula: sanitizeFormula(actualTaskFormula) };
     } else {
         summaryRow.getCell(6).value = 0;
     }
@@ -688,6 +887,18 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     };
     summaryRow.eachCell((cell) => {
         cell.border = { top: { style: "thin" }, bottom: { style: "thin" } };
+    });
+
+    // Conditional formatting for Summary numeric cells (Plan/Task/Actual) so integers show
+    // without decimals and decimals show two places.
+    const summaryStartCol = 3; // C
+    const summaryEndCol = 6; // F
+    summarySheet.addConditionalFormatting({
+        ref: `${getColumnLetter(summaryStartCol)}${summaryRowIndex}:${getColumnLetter(summaryEndCol)}${summaryRowIndex}`,
+        rules: [
+            { priority: 1, type: 'expression', formulae: [`MOD(${getColumnLetter(summaryStartCol)}${summaryRowIndex},1)=0`], style: { numFmt: '#,##0' } },
+            { priority: 2, type: 'expression', formulae: [`MOD(${getColumnLetter(summaryStartCol)}${summaryRowIndex},1)<>0`], style: { numFmt: '0.00' } },
+        ],
     });
 
     return await workbook.xlsx.writeBuffer();

@@ -61,6 +61,8 @@ export interface ProjectData {
     overview?: string;
     expectedOutputPerOperator?: string;
     outputCadence?: string;
+    // total planned time for the project in minutes (optional)
+    timeMinutes?: number;
 }
 
 export interface FileAttachment {
