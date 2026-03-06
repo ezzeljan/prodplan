@@ -39,6 +39,13 @@ export interface DailyColumn {
     formula?: string;
 }
 
+export interface DashboardMetric {
+    label: string;
+    formula?: string;
+    value?: string | number;
+    format?: string;
+}
+
 export interface ProjectData {
     name: string;
     goal: number;
@@ -50,7 +57,10 @@ export interface ProjectData {
     columns: ProjectColumn[];
     dailyColumns: DailyColumn[];
     pivotColumns?: { header: string; formula: string }[];
-    dashboardMetrics?: { label: string; formula: string; format?: string }[];
+    dashboardMetrics?: DashboardMetric[];
+    overview?: string;
+    expectedOutputPerOperator?: string;
+    outputCadence?: string;
 }
 
 export interface FileAttachment {

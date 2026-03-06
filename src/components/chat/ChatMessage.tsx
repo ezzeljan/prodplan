@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { Components } from 'react-markdown';
 import { Bot, User as UserIcon, FileSpreadsheet, Download } from 'lucide-react';
 import { Message } from '../../types/production';
 
@@ -8,9 +8,81 @@ interface ChatMessageProps {
     onDownload?: (fileName: string, buffer: any) => void;
 }
 
+const markdownComponents: Components = {
+    table: ({ children }) => (
+        <div className="overflow-x-auto max-w-full rounded-lg border border-gray-200 dark:border-gray-700">
+            <table className="w-full text-sm border-collapse">{children}</table>
+        </div>
+    ),
+};
+
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, onDownload }) => {
     const isAgent = message.role === 'agent';
+    const transformTableMarkdown = (md: string, maxRows = 5) => {
+        const lines = md.split(/\r?\n/);
+        const outLines: string[] = [];
+        let i = 0;
+        while (i < lines.length) {
+            const line = lines[i];
+            // detect table header + separator
+            const next = lines[i + 1] ?? '';
+            const isTableHeader = line.includes('|') && /^\s*\|?[\s:-|]+\|?\s*$/.test(next);
+            if (isTableHeader) {
+                // gather table
+                const tableLines = [line, next];
+                i += 2;
+                while (i < lines.length && lines[i].includes('|')) {
+                    tableLines.push(lines[i]);
+                    i += 1;
+                }
 
+                // parse table into rows of cells
+                const parseRow = (r: string) => {
+                    const parts = r.split('|').map(s => s.trim());
+                    // remove leading/trailing empty cells caused by starting/ending |
+                    if (parts[0] === '') parts.shift();
+                    if (parts[parts.length - 1] === '') parts.pop();
+                    return parts;
+                };
+
+                const header = parseRow(tableLines[0]);
+                const separator = tableLines[1];
+                const dataRows = tableLines.slice(2).map(parseRow);
+
+                // determine columns to keep (remove Day and Week)
+                const removeCols = new Set(['day', 'week']);
+                const keepIndexes: number[] = [];
+                header.forEach((h, idx) => {
+                    if (!removeCols.has(h.toLowerCase())) keepIndexes.push(idx);
+                });
+
+                // rebuild header and separator
+                const buildRow = (cells: string[]) => '|' + cells.map(c => ` ${c} `).join('|') + '|';
+
+                const newHeader = keepIndexes.map(idx => header[idx] ?? '');
+                const newSeparator = '|' + keepIndexes.map(() => ' --- ').join('|') + '|';
+
+                // truncate data rows to maxRows and add ellipsis row if more
+                const truncated = dataRows.slice(0, maxRows);
+                const hasMore = dataRows.length > maxRows;
+                const newDataRows = truncated.map(r => keepIndexes.map(idx => r[idx] ?? ''));
+                if (hasMore) {
+                    const ell = new Array(newHeader.length).fill('');
+                    ell[0] = '...';
+                    newDataRows.push(ell);
+                }
+
+                outLines.push(buildRow(newHeader));
+                outLines.push(newSeparator);
+                newDataRows.forEach(r => outLines.push(buildRow(r)));
+            } else {
+                outLines.push(line);
+                i += 1;
+            }
+        }
+
+        return outLines.join('\n');
+    };
     return (
         <div className={`flex gap-3 ${!isAgent ? 'flex-row-reverse' : ''}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isAgent ? 'bg-blue-600 text-white' : 'bg-gray-900 text-white'
@@ -24,7 +96,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onDownload }) => {
                         : 'bg-gray-900 text-white rounded-tr-none'
                     }`}>
                     <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-gray-800 prose-pre:text-gray-100">
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                        <ReactMarkdown components={markdownComponents}>{transformTableMarkdown(message.content || '')}</ReactMarkdown>
                     </div>
 
                     {message.attachment && (

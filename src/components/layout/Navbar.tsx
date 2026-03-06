@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, User, LogOut, AlertTriangle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -19,6 +19,13 @@ const Navbar = () => {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const { isSignedIn, login, logout } = useAuth();
   const location = useLocation();
+
+  useEffect(() => {
+    const event = new CustomEvent("sidebar-expanded-change", {
+      detail: isExpanded,
+    });
+    window.dispatchEvent(event);
+  }, [isExpanded]);
 
   return (
     <>

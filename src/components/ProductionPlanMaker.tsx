@@ -59,6 +59,9 @@ const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant
           4. Start Date (YYYY-MM-DD)
           5. End Date (YYYY-MM-DD)
           6. List of Resources/Teams
+          7. Preferred output cadence (per day/week/month or another custom period) exactly as described in their prompt.
+          8. Project Overview (a short narrative describing the scope or purpose).
+          9. Expected output per operator (if the user already has a per-person expectation).
           
           CURRENT DATE CONTEXT: Today's date is ${new Date().toLocaleDateString("en-CA")}. If the user uses relative dates like "today", "tomorrow", "yesterday", "next Monday", or "in 2 weeks", you MUST calculate and use the exact YYYY-MM-DD based on this current date.
 
@@ -84,14 +87,20 @@ const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant
           
           TABLE & COLUMN NAMES:
           - The raw data table is named 'DailyProductionTable'.
-          - Base columns in 'DailyProductionTable' are: [Date (A), Day (B), Week (C), Name (D)].
-          - Your 'dailyColumns' start at Column E (Index 5).
+          - Base columns in 'DailyProductionTable' are: [Date (A), Name (B)].
+          - Your 'dailyColumns' start at Column C (Index 3).
           - Use these names and letters EXACTLY in your formulas.
           
+          WORKBOOK SHEET RULES:
+          - Build four sheets in the workbook in this order: 1) "Daily Output of [Project Name]" for the raw data/overview, 2) "[Project Name] Production Plan" for the daily summaries, 3) "Pivot Tables" for aggregations, and 4) "Summary" to compare plan vs actual.
+          - The first sheet must display a merged header reading "Daily Output of [Project Name]" above a two-column overview block. That overview block must include rows for Project Name, Project Overview, Expected Output per operator (when provided), Start Date, and End Date with the value column spanning the remaining width so it auto-fits.
+          - The Date, Operator Name, and Output per [cadence] columns on the first sheet should contain direct values (no helper formulas) so the sheet behaves like a daily output log. The 'DailyProductionTable' stays on this sheet below the overview block and still powers the formulas on the other sheets.
+          - The Summary sheet must include these columns: No., Task, Plan (Time/hrs/min), Plan (Task), Actual (Time/hrs/min), Actual (Task), Balance, Completion Rate, and Remarks. Use formulas that pull aggregated data from the DailyProductionTable ranges for the Plan/Actual columns, compute Balance as Plan task minus Actual task, display Completion Rate as Actual/Plan (with error protection), auto-number the rows, and list remarks/statuses such as Completed, Completed ahead of plan, In progress, Delayed, and At risk.
+
           For every PLAN, PIVOT, and DASHBOARD item, you MUST provide an Excel formula that references the 'DailyProductionTable'.
           Use {rowIndex} for relative row references in Plan/Pivot.
           
-          Once you have the core project details (1-6), you MUST FIRST present the full architecture to the user using well-structured Markdown tables that mirror the exact structure of the columns you will generate. Use clear headings with emojis like "📊 1. DailyProductionTable (Raw Data Sheet)", "📈 2. Plan Sheet (Daily Summaries)", "📊 3. Pivot Sheet (Aggregated Metrics)", and "🎯 4. Dashboard Metrics". Format the tables beautifully. Ensure that the 'Target' field is explicitly displayed as a column in the DailyProductionTable, and populate the table with realistic example values for all fields (apply the **LPB method (Learning, Performance, Breakthrough)** for target distribution: targets should increase gradually over the timeline instead of being uniform. Ensure the sum of these daily targets still matches the **Overall Goal** exactly).
+          Once you have the core project details (1-6), you MUST FIRST present the full architecture to the user using well-structured Markdown tables that mirror the exact structure of the columns you will generate. Use clear headings with emojis like "📊 1. Daily Output of [Project Name]", "📈 2. [Project Name] Production Plan", "📊 3. Pivot Tables", and "🎯 4. Summary". Format the tables beautifully. Ensure that the 'Target' field is explicitly displayed as a column in the DailyProductionTable, and populate the table with realistic example values for all fields (apply the **LPB method (Learning, Performance, Breakthrough)** for target distribution: targets should increase gradually over the timeline instead of being uniform. Ensure the sum of these daily targets still matches the **Overall Goal** exactly).
           
           CRITICAL: DO NOT call the 'generate_production_plan' tool immediately. You MUST present the tables and explicitly ask the user for confirmation (e.g., "Does this structure look good? Would you like me to generate the Excel file?").
           
@@ -137,6 +146,18 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
             type: "array",
             items: { type: "string" },
             description: "List of names of teams or individuals",
+          },
+          overview: {
+            type: "string",
+            description: "Brief description of the project's scope or purpose.",
+          },
+          expectedOutputPerOperator: {
+            type: "string",
+            description: "Optional per-operator expectation if the user has one.",
+          },
+          outputCadence: {
+            type: "string",
+            description: "Preferred cadence such as 'per day', 'per week', or any custom period.",
           },
           columns: {
             type: "array",
@@ -196,9 +217,14 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
               properties: {
                 label: { type: "string" },
                 formula: { type: "string" },
+                value: {
+                  description: "Use when you only need to display a static value instead of a formula.",
+                  type: ["number", "string"],
+                },
                 format: { type: "string" },
               },
-              required: ["label", "formula"],
+              required: ["label"],
+              additionalProperties: false,
             },
           },
           actualData: {
@@ -257,6 +283,17 @@ export default function ProductionPlanMaker() {
   const [rejectedMsgIds, setRejectedMsgIds] = useState<Set<string>>(new Set());
 
   const { googleToken, login, logout } = useAuth();
+
+  const requestReauth = (reason: string) => {
+    const reauthMsgId = Date.now().toString();
+    setMessages((prev) => [
+      ...prev,
+      { id: reauthMsgId, role: "agent", content: "" },
+    ]);
+    typewriterEffect(reason, reauthMsgId);
+    logout();
+    setTimeout(() => login(), 100);
+  };
 
   useEffect(() => {
     if (isDark) {
@@ -422,6 +459,12 @@ export default function ProductionPlanMaker() {
   };
 
   const handleSendMessage = async () => {
+    if (!googleToken) {
+      requestReauth(
+        "I lost your Google Drive session. Please sign in again so I can continue uploading plans.",
+      );
+      return;
+    }
     if ((!inputValue.trim() && !currentFile) || isTyping || isStreaming) return;
 
     const contextPreamble = currentProject
@@ -487,7 +530,7 @@ export default function ProductionPlanMaker() {
       }
 
       const response = await openai.chat.completions.create({
-        model: "anthropic/claude-3.5-sonnet",
+        model: "minimax/minimax-m2.5",
         messages: openAiMessages,
         tools: TOOLS,
         tool_choice: "auto",
@@ -558,24 +601,39 @@ export default function ProductionPlanMaker() {
                   },
                 ]);
                 typewriterEffect(successText, msgId);
-              } catch (error) {
+            } catch (error) {
+                const authError = (error as any)?.isAuthError;
+                if (authError) {
+                    const authMsg = Date.now().toString();
+                    setMessages((prev) => [
+                        ...prev,
+                        { id: authMsg, role: "agent", content: "" },
+                    ]);
+                    typewriterEffect(
+                        "Your Google Drive session expired. I'll ask you to sign in again so I can upload the plan when you're ready.",
+                        authMsg,
+                    );
+                    logout();
+                    setTimeout(() => login(), 100);
+                    return;
+                }
                 console.error("Google Drive Upload Error", error);
                 const fallbackText = `${generatedText}I generated the production plan, but there was an error uploading it to Google Drive. You can download the Excel file below locally.`;
                 setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: msgId,
-                    role: "agent",
-                    content: "",
-                    type: "file",
-                    fileData: {
-                      name: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
-                      buffer: buffer,
+                    ...prev,
+                    {
+                        id: msgId,
+                        role: "agent",
+                        content: "",
+                        type: "file",
+                        fileData: {
+                            name: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
+                            buffer: buffer,
+                        },
                     },
-                  },
                 ]);
                 typewriterEffect(fallbackText, msgId);
-              }
+            }
             } else {
               const successText = `${generatedText}I've generated the production plan for **${projectData.name}**. You can download it below. Log in with Google first if you'd like me to upload it to Google Drive!`;
               setMessages((prev) => [
@@ -753,6 +811,13 @@ export default function ProductionPlanMaker() {
         onLogin={login}
         onLogout={logout}
       />
+      {showSidebar && (
+        <div
+          className="fixed inset-0 z-[55] bg-black/40"
+          onClick={() => setShowSidebar(false)}
+          aria-hidden="true"
+        />
+      )}
 
       {/* ── Main Chat ── */}
       <div className="flex-1 flex flex-col min-w-0 relative">
@@ -843,7 +908,7 @@ export default function ProductionPlanMaker() {
 
         {/* ── Messages Container ── */}
         <div
-          className={`flex-1 overflow-y-auto pt-28 pb-40 px-4 sm:px-12 md:px-24 lg:px-48 xl:px-72 space-y-6 relative z-10 ${messages.length === 0 ? "hidden" : ""
+          className={`flex-1 overflow-y-auto pt-28 pb-40 px-4 sm:px-8 md:px-16 lg:px-24 xl:px-32 space-y-6 relative z-10 ${messages.length === 0 ? "hidden" : ""
             }`}
         >
           {messages.map((msg) => (
@@ -1242,7 +1307,7 @@ export default function ProductionPlanMaker() {
             </div>
           )}
           <div
-            className={`w-full max-w-4xl p-2 rounded-3xl shadow-2xl space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${isDark
+            className={`w-full max-w-5xl p-2 rounded-3xl shadow-2xl space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${isDark
               ? "bg-zinc-800/60 border-white/10"
               : "bg-white/50 border-white/50"
               } ${!googleToken ? "opacity-50 pointer-events-none grayscale" : ""}`}

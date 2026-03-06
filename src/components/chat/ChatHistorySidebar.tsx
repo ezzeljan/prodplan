@@ -80,104 +80,101 @@ export default function ChatHistorySidebar({
     const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
     return (
         <div
-            className="flex flex-col transition-all duration-300 overflow-hidden flex-shrink-0"
-            style={{
-                width: showSidebar ? '260px' : '0px',
-                backgroundColor: '#1a3d28',
-                borderRight: showSidebar ? '1px solid #046241' : 'none'
-            }}
+            className={`fixed inset-y-0 left-0 flex flex-col z-[60] transition-transform duration-300 ${showSidebar ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none"}`}
         >
-            {showSidebar && (
-                <>
-                    {/* Sidebar Header */}
-                    <div className="p-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #046241' }}>
-                        <span className="font-semibold text-white text-sm">Chat History</span>
-                        <div className="flex items-center gap-2">
-                            {sessions.length > 0 && (
-                                <button
-                                    onClick={() => setShowDeleteAllConfirm(true)}
-                                    className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-red-400 transition-colors"
-                                    title="Delete All History"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            )}
+            <div
+                className="h-full w-[260px] overflow-hidden flex flex-col"
+                style={{ backgroundColor: "#1a3d28", borderRight: "1px solid #046241" }}
+            >
+                {/* Sidebar Header */}
+                <div className="p-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid #046241" }}>
+                    <span className="font-semibold text-white text-sm">Chat History</span>
+                    <div className="flex items-center gap-2">
+                        {sessions.length > 0 && (
                             <button
-                                onClick={onNewSession}
-                                className="p-1.5 rounded-lg hover:opacity-70 transition-opacity"
-                                style={{ backgroundColor: '#046241', color: '#FFC370' }}
-                                title="New Chat"
+                                onClick={() => setShowDeleteAllConfirm(true)}
+                                className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-red-400 transition-colors"
+                                title="Delete All History"
                             >
-                                <Plus className="w-4 h-4" />
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        )}
+                        <button
+                            onClick={onNewSession}
+                            className="p-1.5 rounded-lg hover:opacity-70 transition-opacity"
+                            style={{ backgroundColor: "#046241", color: "#FFC370" }}
+                            title="New Chat"
+                        >
+                            <Plus className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Session List */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                    {sessions.length === 0 && (
+                        <p className="text-xs text-center p-4" style={{ color: "#FFC370", opacity: 0.6 }}>No history yet</p>
+                    )}
+                    {[...sessions].reverse().map(session => (
+                        <div
+                            key={session.id}
+                            className="flex items-center gap-2 p-3 rounded-xl cursor-pointer group transition-opacity hover:opacity-90"
+                            style={{ backgroundColor: session.id === activeSessionId ? "#046241" : "rgba(255,255,255,0.05)" }}
+                        >
+                            <div
+                                className="flex-1 min-w-0"
+                                onClick={() => onLoadSession(session)}
+                            >
+                                <p className="text-xs font-medium truncate text-white">{session.title}</p>
+                                <p className="text-xs mt-0.5" style={{ color: "#FFB347", opacity: 0.8 }}>
+                                    {new Date(session.createdAt).toLocaleDateString()}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    console.log("delete clicked", session.id);
+                                    onDeleteSession(session.id);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded"
+                                style={{ color: "#FFC370" }}
+                            >
+                                <Trash2 className="w-3 h-3" />
                             </button>
                         </div>
-                    </div>
+                    ))}
+                </div>
 
-                    {/* Session List */}
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                        {sessions.length === 0 && (
-                            <p className="text-xs text-center p-4" style={{ color: '#FFC370', opacity: 0.6 }}>No history yet</p>
-                        )}
-                        {[...sessions].reverse().map(session => (
-                            <div
-                                key={session.id}
-                                className="flex items-center gap-2 p-3 rounded-xl cursor-pointer group transition-opacity hover:opacity-90"
-                                style={{ backgroundColor: session.id === activeSessionId ? '#046241' : 'rgba(255,255,255,0.05)' }}
-                            >
-                                <div
-                                    className="flex-1 min-w-0"
-                                    onClick={() => onLoadSession(session)}
-                                >
-                                    <p className="text-xs font-medium truncate text-white">{session.title}</p>
-                                    <p className="text-xs mt-0.5" style={{ color: '#FFB347', opacity: 0.8 }}>
-                                        {new Date(session.createdAt).toLocaleDateString()}
-                                    </p>
+                {/* Account Section */}
+                <div className="p-4" style={{ borderTop: "1px solid #046241" }}>
+                    {googleToken ? (
+                        <button
+                            onClick={onLogout}
+                            className="w-full flex items-center justify-between p-2 rounded-lg transition-colors hover:bg-white/10"
+                            style={{ color: "#FFB347" }}
+                        >
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-emerald-700/50 flex items-center justify-center">
+                                    <User className="w-3 h-3 text-emerald-300" />
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        console.log('delete clicked', session.id);
-                                        onDeleteSession(session.id);
-                                    }}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded"
-                                    style={{ color: '#FFC370' }}
-                                >
-                                    <Trash2 className="w-3 h-3" />
-                                </button>
+                                <span className="text-sm font-medium text-white">Drive Connected</span>
                             </div>
-                        ))}
-                    </div>
+                            <LogOut className="w-4 h-4 opacity-70 hover:opacity-100" />
+                        </button>
+                    ) : (
+                        <button
+                            onClick={onLogin}
+                            className="w-full flex items-center justify-center gap-2 p-2 rounded-lg transition-colors bg-white/10 hover:bg-white/20"
+                            style={{ color: "#FFC370" }}
+                        >
+                            <User className="w-4 h-4" />
+                            <span className="text-sm font-medium">Connect Drive</span>
+                        </button>
+                    )}
+                </div>
+            </div>
 
-                    {/* Account Section */}
-                    <div className="p-4" style={{ borderTop: '1px solid #046241' }}>
-                        {googleToken ? (
-                            <button
-                                onClick={onLogout}
-                                className="w-full flex items-center justify-between p-2 rounded-lg transition-colors hover:bg-white/10"
-                                style={{ color: '#FFB347' }}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full bg-emerald-700/50 flex items-center justify-center">
-                                        <User className="w-3 h-3 text-emerald-300" />
-                                    </div>
-                                    <span className="text-sm font-medium text-white">Drive Connected</span>
-                                </div>
-                                <LogOut className="w-4 h-4 opacity-70 hover:opacity-100" />
-                            </button>
-                        ) : (
-                            <button
-                                onClick={onLogin}
-                                className="w-full flex items-center justify-center gap-2 p-2 rounded-lg transition-colors bg-white/10 hover:bg-white/20"
-                                style={{ color: '#FFC370' }}
-                            >
-                                <User className="w-4 h-4" />
-                                <span className="text-sm font-medium">Connect Drive</span>
-                            </button>
-                        )}
-                    </div>
-                </>
-            )}
             {/* Delete All Confirmation Modal */}
             <AnimatePresence>
                 {showDeleteAllConfirm && (

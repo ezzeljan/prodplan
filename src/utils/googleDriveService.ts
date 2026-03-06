@@ -41,7 +41,11 @@ export const uploadExcelToGoogleDrive = async (
 
     if (!response.ok) {
         const errorBody = await response.text();
-        throw new Error(`Google Drive API error (${response.status}): ${errorBody}`);
+        const err = new Error(
+            `Google Drive API error (${response.status}): ${errorBody}`,
+        ) as Error & { isAuthError?: boolean };
+        if (response.status === 401) err.isAuthError = true;
+        throw err;
     }
 
     const result = await response.json();
