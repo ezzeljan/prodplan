@@ -813,7 +813,7 @@ export default function ProductionPlanMaker() {
       />
       {showSidebar && (
         <div
-          className="fixed inset-0 z-[55] bg-black/40"
+          className="fixed inset-0 z-55 bg-black/40"
           onClick={() => setShowSidebar(false)}
           aria-hidden="true"
         />
@@ -823,11 +823,11 @@ export default function ProductionPlanMaker() {
       <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Background blobs */}
         <div
-          className={`absolute top-[5%] left-[5%] w-[400px] h-[400px] rounded-full blur-[100px] pointer-events-none ${isDark ? "bg-zinc-800/20" : "bg-slate-200/40"
+          className={`absolute top-[5%] left-[5%] w-100 h-100 rounded-full blur-[100px] pointer-events-none ${isDark ? "bg-zinc-800/20" : "bg-slate-200/40"
             }`}
         />
         <div
-          className={`absolute bottom-[20%] right-[10%] w-[500px] h-[500px] rounded-full blur-[120px] pointer-events-none ${isDark ? "bg-zinc-700/10" : "bg-zinc-200/30"
+          className={`absolute bottom-[20%] right-[10%] w-125 h-125 rounded-full blur-[120px] pointer-events-none ${isDark ? "bg-zinc-700/10" : "bg-zinc-200/30"
             }`}
         />
 
@@ -851,7 +851,7 @@ export default function ProductionPlanMaker() {
         )}
 
         {/* Header */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-5xl p-4 flex justify-between items-center bg-white/20 backdrop-blur-2xl border border-white/40 rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.04),inset_0_1px_2px_rgba(255,255,255,0.8)] z-20">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-5xl p-4 flex justify-between items-center bg-white/20 backdrop-blur-2xl border border-white/40 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.04),inset_0_1px_2px_rgba(255,255,255,0.8)] z-20">
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-sm"
@@ -918,7 +918,7 @@ export default function ProductionPlanMaker() {
             >
               {/* Avatar */}
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white"
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white"
                 style={{
                   backgroundColor: msg.role === "agent" ? "#046241" : "#133020",
                 }}
@@ -1056,7 +1056,7 @@ export default function ProductionPlanMaker() {
                           <img
                             src={msg.attachment.data}
                             alt={msg.attachment.name}
-                            className="block max-w-full h-auto max-h-[300px] transition-transform group-hover:scale-105"
+                            className="block max-w-full h-auto max-h-75 transition-transform group-hover:scale-105"
                           />
                         </div>
                       ) : (
@@ -1140,7 +1140,7 @@ export default function ProductionPlanMaker() {
                       href={msg.fileData.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-4 rounded-xl w-full transition-opacity text-left hover:opacity-90 block"
+                      className="flex items-center gap-3 p-4 rounded-xl w-full transition-opacity text-left hover:opacity-90"
                       style={{
                         backgroundColor: "#FFC370",
                         border: "1px solid #FFB347",
@@ -1208,7 +1208,7 @@ export default function ProductionPlanMaker() {
           {isTyping && (
             <div className="flex gap-3">
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0"
                 style={{ backgroundColor: "#046241" }}
               >
                 <Bot className="w-5 h-5" />
@@ -1241,7 +1241,7 @@ export default function ProductionPlanMaker() {
           className={
             messages.length === 0
               ? "absolute inset-0 flex flex-col items-center justify-center p-4 z-20 pointer-events-none"
-              : `absolute bottom-0 left-0 w-full pb-6 pt-12 px-4 flex justify-center z-20 pointer-events-none bg-gradient-to-t ${isDark
+              : `absolute bottom-0 left-0 w-full pb-6 pt-12 px-4 flex justify-center z-20 pointer-events-none bg-linear-to-t ${isDark
                 ? "from-[#171717] via-[#171717]/90"
                 : "from-[#f8f9fa] via-[#f8f9fa]/90"
               } to-transparent transition-colors duration-300`
@@ -1325,7 +1325,7 @@ export default function ProductionPlanMaker() {
                   style={{ color: "#046241" }}
                 >
                   <Paperclip className="w-4 h-4" />
-                  <span className="font-medium truncate max-w-[200px]">
+                  <span className="font-medium truncate max-w-50">
                     {fileName}
                   </span>
                 </div>
@@ -1367,7 +1367,7 @@ export default function ProductionPlanMaker() {
                 onKeyDown={handleKeyDown}
                 placeholder="Describe your project..."
                 disabled={isTyping || isStreaming}
-                className={`flex-1 px-4 py-3 rounded-xl outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-[200px] backdrop-blur-sm ${isDark
+                className={`flex-1 px-4 py-3 rounded-xl outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-50 backdrop-blur-sm ${isDark
                   ? "bg-zinc-900/40 text-gray-100 placeholder-zinc-500"
                   : "bg-white/60 text-[#133020] placeholder-gray-500"
                   }`}
