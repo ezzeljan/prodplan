@@ -3,7 +3,6 @@ import { saveAs } from "file-saver";
 import {
   Bot,
   Plus,
-  RefreshCw,
   Download,
   User as UserIcon,
   FileSpreadsheet,
@@ -12,8 +11,6 @@ import {
   Send,
   X,
   FileText,
-  History,
-  ChevronLeft,
   Moon,
   Sun,
 } from "lucide-react";
@@ -306,17 +303,10 @@ export default function ProductionPlanMaker() {
   }, [isDark]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const chatRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const deletedSessionsRef = useRef<Set<string>>(new Set());
-
-  const initChat = () => { };
-
-  useEffect(() => {
-    if (!chatRef.current) initChat();
-  }, []);
 
   useEffect(() => {
     const stored = loadSessions();
@@ -703,16 +693,6 @@ export default function ProductionPlanMaker() {
     }
   };
 
-  const resetChat = () => {
-    if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-    setIsStreaming(false);
-    setMessages([]);
-    setUploadedData(null);
-    setFileName(null);
-    setCurrentProject(null);
-    initChat();
-  };
-
   const startNewSession = () => {
     if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
     setIsStreaming(false);
@@ -736,9 +716,7 @@ export default function ProductionPlanMaker() {
     setFileName(null);
     setCurrentFile(null);
     setCurrentProject(null);
-    chatRef.current = null;
     setShowSidebar(false);
-    initChat();
   };
 
   const loadSession = (session: ChatSession) => {
@@ -750,9 +728,7 @@ export default function ProductionPlanMaker() {
     setFileName(null);
     setCurrentFile(null);
     setCurrentProject(null);
-    chatRef.current = null;
     setShowSidebar(false);
-    initChat();
   };
 
   const handleDeleteSession = (sessionId: string) => {
