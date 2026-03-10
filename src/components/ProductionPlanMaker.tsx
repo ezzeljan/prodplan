@@ -13,6 +13,7 @@ import {
   FileText,
   Moon,
   Sun,
+  History,
 } from "lucide-react";
 import OpenAI from "openai";
 import ReactMarkdown from "react-markdown";
@@ -91,7 +92,9 @@ const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant
           WORKBOOK SHEET RULES:
           - Build four sheets in the workbook in this order: 1) "Daily Output of [Project Name]" for the raw data/overview, 2) "[Project Name] Production Plan" for the daily summaries, 3) "Pivot Tables" for aggregations, and 4) "Summary" to compare plan vs actual.
           - The first sheet must display a merged header reading "Daily Output of [Project Name]" above a two-column overview block. That overview block must include rows for Project Name, Project Overview, Expected Output per operator (when provided), Start Date, and End Date with the value column spanning the remaining width so it auto-fits.
-          - The Date, Operator Name, and Output per [cadence] columns on the first sheet should contain direct values (no helper formulas) so the sheet behaves like a daily output log. The 'DailyProductionTable' stays on this sheet below the overview block and still powers the formulas on the other sheets.
+          - The Date, Operator Name, and Output per [cadence] columns on the first sheet should contain direct values (no helper formulas) so the sheet behaves like a daily output log. The 'Daily
+          
+          Table' stays on this sheet below the overview block and still powers the formulas on the other sheets.
           - The Summary sheet must include these columns: No., Task, Plan (Time/hrs/min), Plan (Task), Actual (Time/hrs/min), Actual (Task), Balance, Completion Rate, and Remarks. Use formulas that pull aggregated data from the DailyProductionTable ranges for the Plan/Actual columns, compute Balance as Plan task minus Actual task, display Completion Rate as Actual/Plan (with error protection), auto-number the rows, and list remarks/statuses such as Completed, Completed ahead of plan, In progress, Delayed, and At risk.
 
           For every PLAN, PIVOT, and DASHBOARD item, you MUST provide an Excel formula that references the 'DailyProductionTable'.
@@ -591,39 +594,39 @@ export default function ProductionPlanMaker() {
                   },
                 ]);
                 typewriterEffect(successText, msgId);
-            } catch (error) {
+              } catch (error) {
                 const authError = (error as any)?.isAuthError;
                 if (authError) {
-                    const authMsg = Date.now().toString();
-                    setMessages((prev) => [
-                        ...prev,
-                        { id: authMsg, role: "agent", content: "" },
-                    ]);
-                    typewriterEffect(
-                        "Your Google Drive session expired. I'll ask you to sign in again so I can upload the plan when you're ready.",
-                        authMsg,
-                    );
-                    logout();
-                    setTimeout(() => login(), 100);
-                    return;
+                  const authMsg = Date.now().toString();
+                  setMessages((prev) => [
+                    ...prev,
+                    { id: authMsg, role: "agent", content: "" },
+                  ]);
+                  typewriterEffect(
+                    "Your Google Drive session expired. I'll ask you to sign in again so I can upload the plan when you're ready.",
+                    authMsg,
+                  );
+                  logout();
+                  setTimeout(() => login(), 100);
+                  return;
                 }
                 console.error("Google Drive Upload Error", error);
                 const fallbackText = `${generatedText}I generated the production plan, but there was an error uploading it to Google Drive. You can download the Excel file below locally.`;
                 setMessages((prev) => [
-                    ...prev,
-                    {
-                        id: msgId,
-                        role: "agent",
-                        content: "",
-                        type: "file",
-                        fileData: {
-                            name: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
-                            buffer: buffer,
-                        },
+                  ...prev,
+                  {
+                    id: msgId,
+                    role: "agent",
+                    content: "",
+                    type: "file",
+                    fileData: {
+                      name: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
+                      buffer: buffer,
                     },
+                  },
                 ]);
                 typewriterEffect(fallbackText, msgId);
-            }
+              }
             } else {
               const successText = `${generatedText}I've generated the production plan for **${projectData.name}**. You can download it below. Log in with Google first if you'd like me to upload it to Google Drive!`;
               setMessages((prev) => [
@@ -827,57 +830,71 @@ export default function ProductionPlanMaker() {
         )}
 
         {/* Header */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-5xl p-4 flex justify-between items-center bg-white/20 backdrop-blur-2xl border border-white/40 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.04),inset_0_1px_2px_rgba(255,255,255,0.8)] z-20">
+        <div className={`absolute top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-5xl p-2 pr-3 flex justify-between items-center ${isDark ? "bg-[#171717]/90 border-zinc-700/50 shadow-md" : "bg-[#F3F5F7]/95 border border-[#E8ECEF] shadow-sm"} backdrop-blur-2xl rounded-full z-20`}>
           <div className="flex items-center gap-3">
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-sm"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0"
               style={{ backgroundColor: "#046241" }}
             >
               <Bot className="w-6 h-6" />
             </div>
-            <div>
+            <div className="flex flex-col justify-center gap-1">
               <h1
-                className={`font-bold transition-colors ${isDark ? "text-gray-100" : "text-[#133020]"
-                  }`}
+                className={`text-[15px] font-bold leading-none ${isDark ? "text-gray-100" : "text-[#133020]"}`}
               >
                 Production Plan Agent
               </h1>
-              <p
-                className={`text-xs flex items-center gap-1 transition-colors ${isDark ? "text-emerald-400" : "text-[#046241]"
-                  }`}
+              <div
+                className={`text-[11px] leading-none flex items-center gap-1.5 ${isDark ? "text-emerald-400" : "text-[#046241]"}`}
               >
                 <span
-                  className="w-2 h-2 rounded-full animate-pulse inline-block"
+                  className="w-1.5 h-1.5 rounded-full inline-block"
                   style={{ backgroundColor: "#046241" }}
                 ></span>
                 Powered by Claude AI
-              </p>
+              </div>
             </div>
           </div>
-          <div className="flex gap-1 items-center">
+
+          <div className="flex gap-4 items-center pl-4">
+            <div className={`flex items-center gap-2 px-2 py-1.5 rounded-full ${isDark ? "bg-zinc-800" : "bg-[#EAECEF]"}`}>
+              <button
+                onClick={() => {
+                  startNewSession();
+                  setShowSidebar(false);
+                }}
+                className={`p-1.5 rounded-full transition-colors ${isDark
+                  ? "hover:bg-zinc-700 text-gray-300"
+                  : "hover:bg-white text-[#4A5A66] hover:shadow-sm"
+                  }`}
+                title="New Chat"
+              >
+                <Plus className="w-[18px] h-[18px]" />
+              </button>
+              <button
+                onClick={() => setIsDark(!isDark)}
+                className={`p-1.5 rounded-full transition-colors ${isDark
+                  ? "hover:bg-zinc-700 text-gray-300"
+                  : "hover:bg-white text-[#4A5A66] hover:shadow-sm"
+                  }`}
+                title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {isDark ? (
+                  <Sun className="w-[18px] h-[18px]" />
+                ) : (
+                  <Moon className="w-[18px] h-[18px]" />
+                )}
+              </button>
+            </div>
+
             <button
-              onClick={() => setIsDark(!isDark)}
-              className={`p-2 rounded-full transition-colors ${isDark
-                ? "hover:bg-white/10 text-gray-300"
-                : "hover:bg-white/40 hover:shadow-sm text-[#133020]"
+              onClick={logout}
+              className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all border ${isDark
+                ? "bg-zinc-800 border-zinc-700 text-emerald-400 hover:bg-zinc-700"
+                : "bg-white border-[#E8ECEF] text-[#046241] shadow-sm hover:bg-gray-50 hover:border-[#D1D5DB]"
                 }`}
-              title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
-              {isDark ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )}
-            </button>
-            <button
-              onClick={startNewSession}
-              className={`p-2 rounded-full transition-colors ${isDark
-                ? "hover:bg-white/10 text-gray-300"
-                : "hover:bg-white/40 hover:shadow-sm text-[#133020]"
-                }`}
-              title="New Chat"
-            >
-              <Plus className="w-5 h-5" />
+              SIGN OUT
             </button>
           </div>
         </div>
