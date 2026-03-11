@@ -556,26 +556,19 @@ export default function ProductionPlanMaker() {
               combinedActualData.length > 0 ? combinedActualData : undefined;
             const buffer = await generateExcelFile(projectData);
 
-            // ✅ Save to IndexedDB storage
-            await savePlan({
-              id: Date.now().toString(),
-              projectName: projectData.name,
-              fileName: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
-              createdAt: new Date().toISOString(),
-              buffer: buffer,
-            });
-
             const msgId = Date.now().toString();
             const generatedText = message.content
               ? message.content + "\n\n"
               : "";
 
+            let sheetUrl: string | undefined;
+
             if (googleToken) {
               try {
-                const sheetUrl = await uploadExcelToGoogleDrive(
+                sheetUrl = await uploadExcelToGoogleDrive(
                   buffer,
                   `${projectData.name.replace(/\s+/g, "_")}_Production_Planning`,
-                  googleToken
+                  googleToken,
                 );
 
                 const successText = `${generatedText}I've generated the production plan for **${projectData.name}** and uploaded it to your Google Drive!`;
@@ -590,7 +583,7 @@ export default function ProductionPlanMaker() {
                     fileData: {
                       name: "View Google Sheet",
                       url: sheetUrl,
-                    }
+                    },
                   },
                 ]);
                 typewriterEffect(successText, msgId);
@@ -608,26 +601,28 @@ export default function ProductionPlanMaker() {
                   );
                   logout();
                   setTimeout(() => login(), 100);
-                  return;
-                }
-                console.error("Google Drive Upload Error", error);
-                const fallbackText = `${generatedText}I generated the production plan, but there was an error uploading it to Google Drive. You can download the Excel file below locally.`;
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: msgId,
-                    role: "agent",
-                    content: "",
-                    type: "file",
-                    fileData: {
-                      name: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
-                      buffer: buffer,
+                } else {
+                  console.error("Google Drive Upload Error", error);
+                  const fallbackText = `${generatedText}I generated the production plan, but there was an error uploading it to Google Drive. You can download the Excel file below locally.`;
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: msgId,
+                      role: "agent",
+                      content: "",
+                      type: "file",
+                      fileData: {
+                        name: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
+                        buffer: buffer,
+                      },
                     },
-                  },
-                ]);
-                typewriterEffect(fallbackText, msgId);
+                  ]);
+                  typewriterEffect(fallbackText, msgId);
+                }
               }
-            } else {
+            }
+
+            if (!googleToken) {
               const successText = `${generatedText}I've generated the production plan for **${projectData.name}**. You can download it below. Log in with Google first if you'd like me to upload it to Google Drive!`;
               setMessages((prev) => [
                 ...prev,
@@ -644,6 +639,16 @@ export default function ProductionPlanMaker() {
               ]);
               typewriterEffect(successText, msgId);
             }
+
+            // ✅ Save to IndexedDB storage (including Google Sheet link when available)
+            await savePlan({
+              id: Date.now().toString(),
+              projectName: projectData.name,
+              fileName: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
+              createdAt: new Date().toISOString(),
+              buffer: buffer,
+              googleSheetUrl: sheetUrl,
+            });
           }
         }
       } else {
@@ -830,7 +835,7 @@ export default function ProductionPlanMaker() {
         )}
 
         {/* Header */}
-        <div className={`absolute top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-5xl p-2 pr-3 flex justify-between items-center ${isDark ? "bg-[#171717]/90 border-zinc-700/50 shadow-md" : "bg-[#F3F5F7]/95 border border-[#E8ECEF] shadow-sm"} backdrop-blur-2xl rounded-full z-20`}>
+        <div className={`absolute top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-5xl p-2 pr-3 flex justify-between items-center ${isDark ? "bg-[#3f3f46]/90 border border-[#3f3f46] shadow-md" : "bg-[#F3F5F7]/95 border border-[#E8ECEF] shadow-sm"} backdrop-blur-2xl rounded-full z-20`}>
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0"
@@ -1300,9 +1305,9 @@ export default function ProductionPlanMaker() {
             </div>
           )}
           <div
-            className={`w-full max-w-5xl p-2 rounded-3xl shadow-2xl space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${isDark
-              ? "bg-zinc-800/60 border-white/10"
-              : "bg-white/50 border-white/50"
+            className={`w-full max-w-5xl p-2 rounded-full space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${isDark
+              ? "bg-zinc-800/60 border-zinc-600"
+              : "bg-white/50 border-[#e5e0d5] shadow-xl"
               } ${!googleToken ? "opacity-50 pointer-events-none grayscale" : ""}`}
           >
             {fileName && (
@@ -1336,14 +1341,13 @@ export default function ProductionPlanMaker() {
               </div>
             )}
 
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-0">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="p-3 mb-0.5 rounded-xl transition-opacity hover:opacity-70"
-                style={{ color: "#046241" }}
+                className="p-3 mb-0.5 rounded-full transition-opacity hover:opacity-70"
                 title="Upload file (CSV, Excel, PDF, Doc, PPT, Image)"
               >
-                <Paperclip className="w-5 h-5" />
+                <Paperclip className="w-5 h-5 text-[#4A5A66]" />
               </button>
               <input
                 type="file"
@@ -1360,15 +1364,10 @@ export default function ProductionPlanMaker() {
                 onKeyDown={handleKeyDown}
                 placeholder="Describe your project..."
                 disabled={isTyping || isStreaming}
-                className={`flex-1 px-4 py-3 rounded-xl outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-50 backdrop-blur-sm ${isDark
+                className={`flex-1 px-4 py-3 rounded-full outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-50 backdrop-blur-sm ${isDark
                   ? "bg-zinc-900/40 text-gray-100 placeholder-zinc-500"
                   : "bg-white/60 text-[#133020] placeholder-gray-500"
                   }`}
-                style={{
-                  border: isDark
-                    ? "1px solid rgba(255,255,255,0.1)"
-                    : "1px solid rgba(229, 224, 213, 0.5)",
-                }}
               />
               <button
                 data-send-btn
@@ -1378,10 +1377,12 @@ export default function ProductionPlanMaker() {
                   isTyping ||
                   isStreaming
                 }
-                className="p-3 mb-0.5 rounded-xl transition-opacity shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-white"
-                style={{ backgroundColor: "#046241" }}
+                className="p-3 mb-0.5 rounded-full transition-opacity disabled:opacity-50 disabled:cursor-not-allowed border border-white/40"
+                style={{ backgroundColor: isDark ? "#FFFFFF" : "#000000" }}
               >
-                <Send className="w-5 h-5" />
+                <Send
+                  className={`w-5 h-5 ${isDark ? "text-[#4A5A66]" : "text-white"}`}
+                />
               </button>
             </div>
           </div>

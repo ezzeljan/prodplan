@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, User, LogOut, AlertTriangle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { motion, AnimatePresence } from "motion/react";
@@ -19,6 +19,7 @@ const Navbar = () => {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const { isSignedIn, login, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const event = new CustomEvent("sidebar-expanded-change", {
@@ -31,15 +32,26 @@ const Navbar = () => {
     <>
       {/* Desktop Sidebar */}
       <nav
-        className={`hidden md:flex flex-col fixed left-0 top-0 h-full bg-[#133020]/90 backdrop-blur-xl border-r border-white/10 shadow-sm z-50 transition-all duration-300 ease-in-out ${isExpanded ? "w-64" : "w-20"}`}
+        className={`hidden md:flex flex-col fixed left-0 top-0 h-full bg-[#133020]/90 backdrop-blur-xl shadow-sm z-50 overflow-x-hidden transition-all duration-300 ease-in-out ${isExpanded ? "w-64" : "w-16"}`}
       >
         <div className={`flex items-center h-20 border-b border-white/10 ${isExpanded ? "justify-start px-6 gap-3 bg-white/5" : "justify-center w-full"}`}>
-          <img
-            src={icon}
-            alt="Toggle Sidebar"
-            className={`w-10 h-10 object-contain cursor-pointer transition-transform hover:scale-105 shrink-0 ${isExpanded ? "hidden" : "block"}`}
-            onClick={() => setIsExpanded(true)}
-          />
+          {!isExpanded && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(true)}
+              className="relative inline-flex items-center justify-center w-10 h-10 shrink-0 group transition-transform hover:scale-105"
+              aria-label="Expand sidebar"
+            >
+              <img
+                src={icon}
+                alt="Toggle Sidebar"
+                className="w-10 h-10 object-contain transition-opacity duration-150 group-hover:opacity-0"
+              />
+              <ChevronRight
+                className="absolute w-5 h-5 text-white opacity-0 translate-x-0.5 group-hover:opacity-100 transition-opacity duration-150"
+              />
+            </button>
+          )}
           <Link
             to="/"
             className={`overflow-hidden transition-all duration-300 flex items-center h-12 cursor-pointer ${isExpanded ? "w-auto opacity-100" : "w-0 opacity-0 hidden"}`}
@@ -47,7 +59,6 @@ const Navbar = () => {
               if (location.pathname === "/") {
                 e.preventDefault();
               }
-              setIsExpanded(false);
             }}
           >
             <img
@@ -56,18 +67,34 @@ const Navbar = () => {
               className="h-8 w-auto object-contain brightness-0 invert min-w-[100px] hover:opacity-80 transition-opacity"
             />
           </Link>
+          {isExpanded && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              className="ml-auto p-2 rounded-full hover:bg-white/10 text-white transition-colors"
+              aria-label="Collapse sidebar"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        <div className="flex-1 py-6 flex flex-col gap-2 px-3 overflow-y-auto">
+        <div
+          className={`flex-1 py-6 flex flex-col gap-2 overflow-y-auto ${isExpanded ? "px-3" : "px-0"
+            }`}
+        >
           {navWithIcons.map((item) => {
             const isActive = location.pathname === item.href;
             return (
               <Link
                 key={item.label}
                 to={item.href}
-                className={`flex items-center gap-4 px-3 py-3 rounded-xl transition-colors ${isActive
-                  ? "bg-[#046241] text-white font-semibold"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                className={`flex items-center rounded-full transition-colors ${isExpanded
+                  ? "justify-start gap-4 px-3 py-3"
+                  : "justify-center w-12 h-12 mx-auto"
+                  } ${isActive
+                    ? "bg-[#046241] text-white font-semibold"
+                    : "text-white/70 hover:bg-white/10 hover:text-white"
                   }`}
                 title={!isExpanded ? item.label : undefined}
               >
@@ -81,11 +108,32 @@ const Navbar = () => {
         </div>
 
         {/* Bottom Actions */}
-        <div className="p-3 border-t border-white/10 mt-auto flex flex-col gap-2">
+        <div
+          className={`border-t border-white/10 mt-auto flex flex-col gap-2 ${isExpanded ? "p-3" : "px-0 py-3"
+            }`}
+        >
           {/* Toggle History Sidebar */}
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent('toggle-chat-history'))}
-            className={`flex items-center gap-4 px-3 py-3 w-full rounded-xl transition-colors text-white/70 hover:bg-white/10 hover:text-white`}
+            onClick={() => {
+              if (location.pathname !== "/") {
+                navigate("/");
+                setTimeout(
+                  () =>
+                    window.dispatchEvent(
+                      new CustomEvent("toggle-chat-history"),
+                    ),
+                  150,
+                );
+              } else {
+                window.dispatchEvent(
+                  new CustomEvent("toggle-chat-history"),
+                );
+              }
+            }}
+            className={`flex items-center rounded-full transition-colors text-white/70 hover:bg-white/10 hover:text-white ${isExpanded
+              ? "justify-start gap-4 px-3 py-3 w-full"
+              : "justify-center w-12 h-12 mx-auto"
+              }`}
             title={!isExpanded ? "Chat History" : undefined}
           >
             <div className="flex-shrink-0"><History className="w-5 h-5" /></div>
@@ -103,7 +151,10 @@ const Navbar = () => {
                 login();
               }
             }}
-            className={`flex items-center gap-4 px-3 py-3 w-full rounded-xl transition-colors text-white/70 hover:bg-white/10 hover:text-white`}
+            className={`flex items-center rounded-full transition-colors text-white/70 hover:bg-white/10 hover:text-white ${isExpanded
+              ? "justify-start gap-4 px-3 py-3 w-full"
+              : "justify-center w-12 h-12 mx-auto"
+              }`}
             title={!isExpanded ? (isSignedIn ? "Sign Out" : "Sign In") : undefined}
           >
             <div className="flex-shrink-0">
@@ -164,7 +215,7 @@ const Navbar = () => {
                     key={item.label}
                     to={item.href}
                     onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${isActive
+                    className={`flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors ${isActive
                       ? "bg-[#046241] text-white font-semibold"
                       : "text-white/70 hover:bg-white/10 hover:text-white"
                       }`}
@@ -186,7 +237,7 @@ const Navbar = () => {
                   }
                   setMobileOpen(false);
                 }}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-white/70 hover:bg-white/10 hover:text-white w-full text-left"
+                className="flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors text-white/70 hover:bg-white/10 hover:text-white w-full text-left"
               >
                 {isSignedIn ? <LogOut className="w-5 h-5" /> : <User className="w-5 h-5" />}
                 {isSignedIn ? "Sign Out" : "Sign In"}

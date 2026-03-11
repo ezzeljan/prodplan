@@ -4,6 +4,7 @@ export interface SavedPlan {
     fileName: string;
     createdAt: string;
     buffer: ArrayBuffer;
+    googleSheetUrl?: string;
 }
 
 const DB_NAME = 'ProductionPlanDB';

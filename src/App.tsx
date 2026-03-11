@@ -28,7 +28,7 @@ export default function App() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const sidebarOffset = useMemo(() => (sidebarExpanded ? 256 : 80), [
+  const sidebarOffset = useMemo(() => (sidebarExpanded ? 256 : 64), [
     sidebarExpanded,
   ]);
 

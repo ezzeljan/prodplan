@@ -93,7 +93,7 @@ export default function ChatHistorySidebar({
                         {sessions.length > 0 && (
                             <button
                                 onClick={() => setShowDeleteAllConfirm(true)}
-                                className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-red-400 transition-colors"
+                                className="p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-red-400 transition-colors"
                                 title="Delete All History"
                             >
                                 <Trash2 className="w-4 h-4" />
@@ -101,7 +101,7 @@ export default function ChatHistorySidebar({
                         )}
                         <button
                             onClick={onNewSession}
-                            className="p-1.5 rounded-lg hover:opacity-70 transition-opacity"
+                            className="p-1.5 rounded-full hover:opacity-70 transition-opacity"
                             style={{ backgroundColor: "#046241", color: "#FFC370" }}
                             title="New Chat"
                         >
@@ -137,7 +137,7 @@ export default function ChatHistorySidebar({
                                     console.log("delete clicked", session.id);
                                     onDeleteSession(session.id);
                                 }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full"
                                 style={{ color: "#FFC370" }}
                             >
                                 <Trash2 className="w-3 h-3" />
@@ -151,7 +151,7 @@ export default function ChatHistorySidebar({
                     {googleToken ? (
                         <button
                             onClick={onLogout}
-                            className="w-full flex items-center justify-between p-2 rounded-lg transition-colors hover:bg-white/10"
+                            className="w-full flex items-center justify-between p-2 rounded-full transition-colors hover:bg-white/10"
                             style={{ color: "#FFB347" }}
                         >
                             <div className="flex items-center gap-2">
@@ -165,7 +165,7 @@ export default function ChatHistorySidebar({
                     ) : (
                         <button
                             onClick={onLogin}
-                            className="w-full flex items-center justify-center gap-2 p-2 rounded-lg transition-colors bg-white/10 hover:bg-white/20"
+                            className="w-full flex items-center justify-center gap-2 p-2 rounded-full transition-colors bg-white/10 hover:bg-white/20"
                             style={{ color: "#FFC370" }}
                         >
                             <User className="w-4 h-4" />
