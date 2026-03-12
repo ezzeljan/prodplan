@@ -102,6 +102,12 @@ const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant
           
           Once you have the core project details (1-6), you MUST FIRST present the full architecture to the user using well-structured Markdown tables that mirror the exact structure of the columns you will generate. Use clear headings with emojis like "📊 1. Daily Output of [Project Name]", "📈 2. [Project Name] Production Plan", "📊 3. Pivot Tables", and "🎯 4. Summary". Format the tables beautifully. Ensure that the 'Target' field is explicitly displayed as a column in the DailyProductionTable, and populate the table with realistic example values for all fields (apply the **LPB method (Learning, Performance, Breakthrough)** for target distribution: targets should increase gradually over the timeline instead of being uniform. Ensure the sum of these daily targets still matches the **Overall Goal** exactly).
           
+          CRITICAL RULES FOR VISUALIZED TABLES:
+          - The 'Actual Output' (or 'Actual') columns MUST remain entirely empty in the example tables.
+          - ONLY the 'Target' values should be filled in with realistic generated numbers.
+          - Ensure that all columns containing numbers are properly right-aligned using GitHub Flavored Markdown syntax (e.g., |---:|).
+          - The data and structure displayed in these visualized Markdown tables MUST exactly match what will be generated in the final Excel file and Google Drive.
+          
           CRITICAL: DO NOT call the 'generate_production_plan' tool immediately. You MUST present the tables and explicitly ask the user for confirmation (e.g., "Does this structure look good? Would you like me to generate the Excel file?").
           
           ONLY AFTER the user confirms the structure (and makes no further adjustments) should you call the 'generate_production_plan' tool to generate the Excel file. (Ensure the 'dailyColumns' includes the Target column with the exact key 'target').
@@ -892,15 +898,6 @@ export default function ProductionPlanMaker() {
               </button>
             </div>
 
-            <button
-              onClick={logout}
-              className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all border ${isDark
-                ? "bg-zinc-800 border-zinc-700 text-emerald-400 hover:bg-zinc-700"
-                : "bg-white border-[#E8ECEF] text-[#046241] shadow-sm hover:bg-gray-50 hover:border-[#D1D5DB]"
-                }`}
-            >
-              SIGN OUT
-            </button>
           </div>
         </div>
 

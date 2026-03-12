@@ -46,7 +46,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onDownload }) => {
                 };
 
                 const header = parseRow(tableLines[0]);
-                const separator = tableLines[1];
+                const separatorRow = parseRow(tableLines[1]);
                 const dataRows = tableLines.slice(2).map(parseRow);
 
                 // determine columns to keep (remove Day and Week)
@@ -60,7 +60,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onDownload }) => {
                 const buildRow = (cells: string[]) => '|' + cells.map(c => ` ${c} `).join('|') + '|';
 
                 const newHeader = keepIndexes.map(idx => header[idx] ?? '');
-                const newSeparator = '|' + keepIndexes.map(() => ' --- ').join('|') + '|';
+                const newSeparator = '|' + keepIndexes.map(idx => ` ${separatorRow[idx] || '---'} `).join('|') + '|';
 
                 // truncate data rows to maxRows and add ellipsis row if more
                 const truncated = dataRows.slice(0, maxRows);
@@ -92,8 +92,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onDownload }) => {
 
             <div className="max-w-[80%] space-y-2">
                 <div className={`p-4 rounded-2xl shadow-sm ${isAgent
-                        ? 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
-                        : 'bg-gray-900 text-white rounded-tr-none'
+                    ? 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
+                    : 'bg-gray-900 text-white rounded-tr-none'
                     }`}>
                     <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-gray-800 prose-pre:text-gray-100">
                         <ReactMarkdown components={markdownComponents}>{transformTableMarkdown(message.content || '')}</ReactMarkdown>
