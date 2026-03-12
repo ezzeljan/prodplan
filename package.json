@@ -27,7 +27,7 @@
     "lucide-react": "^0.546.0",
     "mammoth": "^1.11.0",
     "motion": "^12.23.24",
-    "openai": "^6.25.0",
+    "openai": "^6.27.0",
     "papaparse": "^5.5.3",
     "pdfjs-dist": "^5.4.624",
     "react": "^19.0.0",

@@ -1361,10 +1361,15 @@ export default function ProductionPlanMaker() {
                 onKeyDown={handleKeyDown}
                 placeholder="Describe your project..."
                 disabled={isTyping || isStreaming}
-                className={`flex-1 px-4 py-3 rounded-full outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto max-h-50 backdrop-blur-sm ${isDark
+                className={`flex-1 px-4 py-3 rounded-2xl outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none backdrop-blur-sm ${isDark
                   ? "bg-zinc-900/40 text-gray-100 placeholder-zinc-500"
                   : "bg-white/60 text-[#133020] placeholder-gray-500"
                   }`}
+                style={{
+                  border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(229, 224, 213, 0.5)",
+                  maxHeight: "120px",
+                  overflowY: "auto",
+                }}
               />
               <button
                 data-send-btn
