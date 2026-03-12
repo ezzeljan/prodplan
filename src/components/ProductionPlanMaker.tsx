@@ -676,7 +676,7 @@ export default function ProductionPlanMaker() {
         { id: msgId, role: "agent", content: "" },
       ]);
       typewriterEffect(
-        "I'm having a bit of trouble connecting to my brain. Could you try again?",
+        "Something went wrong. Please try again.",
         msgId,
       );
     } finally {
@@ -862,7 +862,7 @@ export default function ProductionPlanMaker() {
                   className="w-1.5 h-1.5 rounded-full inline-block"
                   style={{ backgroundColor: "#046241" }}
                 ></span>
-                Powered by Claude AI
+                Powered by Lifewood AI
               </div>
             </div>
           </div>
@@ -1223,7 +1223,7 @@ export default function ProductionPlanMaker() {
                   className="text-sm"
                   style={{ color: isDark ? "#f4f4f5" : "#133020" }}
                 >
-                  Agent is analyzing...
+                  Processing your request...
                 </span>
               </div>
             </div>
@@ -1358,7 +1358,7 @@ export default function ProductionPlanMaker() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Describe your project..."
+                placeholder="Enter your project details..."
                 disabled={isTyping || isStreaming}
                 className={`flex-1 px-4 py-3 rounded-2xl outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none backdrop-blur-sm ${isDark
                   ? "bg-zinc-900/40 text-gray-100 placeholder-zinc-500"
