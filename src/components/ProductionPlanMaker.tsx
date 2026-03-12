@@ -1302,8 +1302,7 @@ export default function ProductionPlanMaker() {
             </div>
           )}
           <div
-            className={`w-full max-w-5xl p-2 rounded-full space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${isDark
-              ? "bg-zinc-800/60 border-zinc-600"
+            className={`w-full max-w-5xl p-2 rounded-3xl space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${isDark ? "bg-zinc-800/60 border-zinc-600"
               : "bg-white/50 border-[#e5e0d5] shadow-xl"
               } ${!googleToken ? "opacity-50 pointer-events-none grayscale" : ""}`}
           >
