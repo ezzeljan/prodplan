@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { eachDayOfInterval, isValid, isSameDay, differenceInCalendarDays } from 'date-fns';
+import { eachDayOfInterval, isValid, isSameDay, differenceInCalendarDays, format } from 'date-fns';
 import { ProjectData, ActualDataItem } from '../types/production';
 
 export const getColumnLetter = (colIndex: number): string => {
@@ -19,8 +19,13 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     workbook.creator = 'Production Plan Agent';
     workbook.created = new Date();
 
-    const start = new Date(projectData.startDate);
-    const end = new Date(projectData.endDate);
+    const parseLocalDate = (dateStr: string) => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    };
+
+    const start = parseLocalDate(projectData.startDate);
+    const end = parseLocalDate(projectData.endDate);
 
     if (!isValid(start) || !isValid(end)) {
         throw new Error("Invalid dates provided");
@@ -74,31 +79,64 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         itemsByDay[d] = (itemsByDay[d] || 0) + 1;
     });
 
-    let cumulativeWeight = 0;
+    // Fallback dailyWeights for calculating target if targetData isn't provided
     const dailyWeights: Record<string, number> = {};
+    if (!projectData.targetData || Object.keys(projectData.targetData).length === 0) {
+        let cumulativeWeight = 0;
+        uniqueDates.forEach((date, i) => {
+            const progress = i / (totalDays - 1 || 1);
+            let weight = 0;
 
-    uniqueDates.forEach((date, i) => {
-        const progress = i / (totalDays - 1 || 1);
-        let weight = 0;
+            if (progress < 0.25) {
+                const pAdjusted = progress / 0.25;
+                weight = 0.4 + (0.3 * pAdjusted);
+            } else if (progress < 0.75) {
+                const pAdjusted = (progress - 0.25) / 0.5;
+                weight = 0.7 + (0.4 * pAdjusted);
+            } else {
+                const pAdjusted = (progress - 0.75) / 0.25;
+                weight = 1.1 + (0.2 * pAdjusted);
+            }
 
-        if (progress < 0.25) {
-            const pAdjusted = progress / 0.25;
-            weight = 0.4 + (0.3 * pAdjusted);
-        } else if (progress < 0.75) {
-            const pAdjusted = (progress - 0.25) / 0.5;
-            weight = 0.7 + (0.4 * pAdjusted);
-        } else {
-            const pAdjusted = (progress - 0.75) / 0.25;
-            weight = 1.1 + (0.2 * pAdjusted);
-        }
+            dailyWeights[date] = weight;
+            cumulativeWeight += weight * (itemsByDay[date] || 0);
+        });
 
-        dailyWeights[date] = weight;
-        cumulativeWeight += weight * (itemsByDay[date] || 0);
-    });
+        // Store cumulativeWeight directly for fallback
+        (dailyWeights as any)._cumulative = cumulativeWeight;
+    }
+
+    // ──── AI DATA VERIFIER ────
+    // ──── AI DATA VERIFIER ────
+    console.group('🔍 AI Target Data Verifier');
+    if (projectData.targetData && Object.keys(projectData.targetData).length > 0) {
+        console.log(`✅ SUCCESS: AI provided targets for ${Object.keys(projectData.targetData).length} dates.`);
+        const firstDate = Object.keys(projectData.targetData)[0];
+        console.log('Sample data from AI (first date):', projectData.targetData[firstDate]);
+    } else {
+        console.warn('⚠️ WARNING: AI provided 0 targetData points. Falling back to dynamic weights.');
+    }
+    console.groupEnd();
 
     const itemsWithTargets = scheduleItems.map((item) => {
-        const weight = dailyWeights[item.date.toISOString()] || 1;
-        const target = (weight / (cumulativeWeight || 1)) * projectData.goal;
+        let target = 0;
+        const dateKey = format(item.date, 'yyyy-MM-dd');
+
+        // 1. Prioritize targetData provided directly by the AI (matching chat UI preview)
+        if (projectData.targetData && projectData.targetData[dateKey]) {
+            const dayTargets = projectData.targetData[dateKey];
+            // Find target for this resource name (case insensitive)
+            const matchedName = Object.keys(dayTargets).find(name => name.toLowerCase() === item.name.toLowerCase());
+            if (matchedName) {
+                target = dayTargets[matchedName];
+            }
+        } else if (!projectData.targetData || Object.keys(projectData.targetData).length === 0) {
+            // 2. Fallback to calculating target by timeline weight
+            const weight = dailyWeights[item.date.toISOString()] || 1;
+            const cumWeight = (dailyWeights as any)._cumulative || 1;
+            target = (weight / cumWeight) * projectData.goal;
+        }
+
         return {
             ...item,
             target
@@ -258,7 +296,7 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
                 }
             });
 
-        return row;
+            return row;
         }),
     });
 
@@ -307,10 +345,25 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
 
     const convertTableFormula = (formula?: string) => {
         if (!formula) return undefined;
-        return formula.replace(/DailyProductionTable\[([^\]]+)\]/gi, (match, columnName) => {
+        let out = formula;
+
+        // 1. Handle the official table syntax: DailyProductionTable[Column]
+        out = out.replace(/DailyProductionTable\[([^\]]+)\]/gi, (match, columnName) => {
             const lookupKey = columnName.trim().toLowerCase();
-            return columnRangeMap[lookupKey] || match;
+            const range = columnRangeMap[lookupKey];
+            return range || match;
         });
+
+        // 2. Aggressive fallback: Replace standalone words that match our column keys
+        // (Avoid replacing things inside quotes or function names)
+        Object.entries(columnRangeMap).forEach(([key, range]) => {
+            if (key.length < 3) return; // avoid short key collisions
+            // Match the key as a whole word if it's not preceded by [ or !
+            const regex = new RegExp(`(?<!\\[|!)\\b${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b(?![\\]])`, 'gi');
+            out = out.replace(regex, range);
+        });
+
+        return out;
     };
 
     const sanitizeFormula = (f?: string) => {
@@ -460,9 +513,9 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
                 computedActualTimeFormula = `${actualTaskFormula}*${mult}`;
             }
         }
-    } catch (e) {}
+    } catch (e) { }
 
-    
+
 
     if (tableRowCount > 0 && dynamicKeyCols.length > 0) {
         const lastDataRow = firstDataRowIndex + tableRowCount - 1;
@@ -487,6 +540,7 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         ...projectData.columns,
     ];
 
+    console.log('[Sheet2] dynamicColumns structure:', dynamicColumns.map(c => ({ h: c.header, k: c.key, s: c.section })));
     sheetPlan.columns = dynamicColumns.map(col => ({ key: col.key, width: col.width || 18 }));
 
     // Header Row 1
@@ -549,37 +603,67 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     // Numeric formatting for Production Plan will be handled with conditional
     // formatting so whole numbers remain integer-formatted and decimals show two places.
 
+    // Build helpful range names (moved here to avoid ReferenceError in the loop below)
+    const dateRange = columnRangeMap['date'];
+    const targetRange = lookupRange('target', 'target (hrs)', 'plan') || findRangeByKeywords(['target', 'plan']);
+    const actualRange = lookupRange('actual', 'actual (hrs)') || findRangeByKeywords(['actual']);
+    const nameRange = lookupRange('operator', 'name') || findRangeByKeywords(['operator', 'name']);
+
+    // Unique dates should use YYYY-MM-DD strings to avoid any timezone shifts
+    const uniqueDatesLocal = Array.from(
+        new Set(scheduleItems.map((s) => format(s.date, 'yyyy-MM-dd')))
+    ).sort();
+
+    // ──── SHEET 2 DIAGNOSTIC LOGS ──────────────────────────────────────────────
+    console.group('[ExcelGenerator] Sheet 2 Debug');
+    console.log('[Sheet2] columnRangeMap keys:', Object.keys(columnRangeMap));
+    console.log('[Sheet2] dateRange resolved to:', dateRange);
+    console.log('[Sheet2] targetRange resolved to:', targetRange);
+    console.log('[Sheet2] actualRange resolved to:', actualRange);
+    console.log('[Sheet2] uniqueDatesLocal (count):', uniqueDatesLocal.length);
+    console.groupEnd();
+
     // Data Rows
-    uniqueDates.forEach((dateIso, index) => {
+    uniqueDatesLocal.forEach((dateString, index) => {
         const rowIndex = index + 5;
-        const dateObj = new Date(dateIso);
+        const [y, m, d] = dateString.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
         const row = sheetPlan.getRow(rowIndex);
         dynamicColumns.forEach((col, colIdx) => {
             const cell = row.getCell(colIdx + 1);
             if (col.key === 'date') {
                 cell.value = dateObj;
-            } else if (col.key && col.key.toLowerCase() === 'target') {
-                // Pull total target for this date from the DailyProductionTable using a DATE literal
-                const makeDateExpr = (d: Date) => `DATE(${d.getFullYear()},${d.getMonth() + 1},${d.getDate()})`;
-                if (targetRange && dateRange) {
-                    // match exact date using "="&DATE(...) to avoid range/criteria issues
+            } else if (col.key && col.key.toLowerCase().includes('target')) {
+                // Per user request: Write static numeric figure for Target instead of formula
+                let targetSum = 0;
+                if (projectData.targetData && projectData.targetData[dateString]) {
+                    const dayTargets = projectData.targetData[dateString];
+                    Object.values(dayTargets).forEach(val => {
+                        targetSum += (val || 0);
+                    });
+                }
+                if (targetSum > 0) {
+                    cell.value = targetSum;
+                } else {
+                    // Fallback to formula only if no targetData found for this date
+                    const makeDateExpr = (dt: Date) => `DATE(${dt.getFullYear()},${dt.getMonth() + 1},${dt.getDate()})`;
                     const f = `SUMIFS(${targetRange},${dateRange},"="&${makeDateExpr(dateObj)})`;
                     cell.value = { formula: sanitizeFormula(f) };
                 }
-            } else if (col.key && col.key.toLowerCase() === 'actual') {
-                // Pull total actual for this date from the DailyProductionTable using a DATE literal
-                const makeDateExpr = (d: Date) => `DATE(${d.getFullYear()},${d.getMonth() + 1},${d.getDate()})`;
+            } else if (col.key && col.key.toLowerCase().includes('actual')) {
+                // Actuals still need a formula since they change in Sheet 1
+                const makeDateExpr = (dt: Date) => `DATE(${dt.getFullYear()},${dt.getMonth() + 1},${dt.getDate()})`;
                 if (actualRange && dateRange) {
                     const f = `SUMIFS(${actualRange},${dateRange},"="&${makeDateExpr(dateObj)})`;
-                    cell.value = { formula: sanitizeFormula(f) };
+                    const finalFormula = sanitizeFormula(f);
+                    if (index === 0) console.log(`[Sheet2] First actual formula (row ${rowIndex}):`, finalFormula);
+                    cell.value = { formula: finalFormula };
                 }
-            } else if (col.key && col.key.toLowerCase() === 'variance') {
+            } else if (col.key && col.key.toLowerCase().includes('variance')) {
                 // Variance = Target - Actual within this plan sheet row
-                const targetColLetter = getColumnLetter(colIdx); // target is previous columns may vary; use relative
-                const actualColLetter = getColumnLetter(colIdx + 1);
                 // To be safe, compute by finding target/actual column indices in dynamicColumns
-                const targetIndex = dynamicColumns.findIndex(dc => dc.key && dc.key.toLowerCase() === 'target');
-                const actualIndex = dynamicColumns.findIndex(dc => dc.key && dc.key.toLowerCase() === 'actual');
+                const targetIndex = dynamicColumns.findIndex(dc => dc.key && dc.key.toLowerCase().includes('target'));
+                const actualIndex = dynamicColumns.findIndex(dc => dc.key && dc.key.toLowerCase().includes('actual'));
                 const tLetter = targetIndex >= 0 ? getColumnLetter(targetIndex + 1) : null;
                 const aLetter = actualIndex >= 0 ? getColumnLetter(actualIndex + 1) : null;
                 if (tLetter && aLetter) {
@@ -590,11 +674,13 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
                 const convertedFormula = convertTableFormula(col.formula);
                 if (convertedFormula) {
                     const f = convertedFormula.replace(/{rowIndex}/g, rowIndex.toString());
-                    cell.value = { formula: sanitizeFormula(f) };
+                    const finalFormula = sanitizeFormula(f);
+                    if (index === 0) console.log(`[Sheet2] Custom formula column "${col.header}" (row ${rowIndex}):`, finalFormula);
+                    cell.value = { formula: finalFormula };
                 }
             }
             cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-            if (col.header.toLowerCase().includes('rate') || col.header.toLowerCase().includes('%')) cell.numFmt = '0.00%';
+            if (col.header?.toLowerCase().includes('rate') || col.header?.toLowerCase().includes('%')) cell.numFmt = '0.00%';
         });
     });
 
@@ -607,7 +693,8 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         if (colIdx === 0) return;
         const cell = totalRow.getCell(colIdx + 1);
         const colLetter = getColumnLetter(colIdx + 1);
-        const isRate = col.header.toLowerCase().includes('rate') || col.header.toLowerCase().includes('%');
+        const headerLower = (col.header || col.key || '').toLowerCase();
+        const isRate = headerLower.includes('rate') || headerLower.includes('%');
         if (col.key !== 'week' && !isRate) {
             const f = `SUM(${colLetter}5:${colLetter}${totalRowIndex - 1})`;
             cell.value = { formula: sanitizeFormula(f) };
@@ -627,12 +714,6 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
 
     // --- Sheet 3: Pivot Summary ---
     const sheetPivot = workbook.addWorksheet(sanitizeSheetName('Pivot Tables'));
-
-    // Build helpful range names
-    const dateRange = columnRangeMap['date'];
-    const targetRange = columnRangeMap['target'];
-    const actualRange = columnRangeMap['actual'] || lookupRange('actual');
-    const nameRange = columnRangeMap['operator'] || columnRangeMap['name'];
 
     // Block 1: Weekly totals
     const pivotStartCol = 1;
@@ -673,12 +754,27 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         const minD = new Date(Math.min(...dates.map(d => d.getTime())));
         const maxD = new Date(Math.max(...dates.map(d => d.getTime())));
 
+        // Write static target value locally calculated
+        let weekTarget = 0;
+        if (projectData.targetData) {
+            weekItems.forEach(dateStr => {
+                if (projectData.targetData![dateStr]) {
+                    const dayTargets = projectData.targetData![dateStr];
+                    Object.values(dayTargets).forEach(val => {
+                        weekTarget += (val || 0);
+                    });
+                }
+            });
+        }
+
         const makeDateExpr = (d: Date) => `DATE(${d.getFullYear()},${d.getMonth() + 1},${d.getDate()})`;
 
-        if (targetRange && dateRange) {
-            const tgtFormula = `SUMIFS(${targetRange},${dateRange},">="&${makeDateExpr(minD)},${dateRange},"<="&${makeDateExpr(maxD)})`;
-            row.getCell(2).value = { formula: sanitizeFormula(tgtFormula) };
+        if (weekTarget > 0) {
+            row.getCell(2).value = weekTarget;
+        } else if (targetRange && dateRange) {
+            row.getCell(2).value = { formula: sanitizeFormula(`SUMIFS(${targetRange},${dateRange},">="&${makeDateExpr(minD)},${dateRange},"<="&${makeDateExpr(maxD)})`) };
         }
+
         if (actualRange && dateRange) {
             const actFormula = `SUMIFS(${actualRange},${dateRange},">="&${makeDateExpr(minD)},${dateRange},"<="&${makeDateExpr(maxD)})`;
             row.getCell(3).value = { formula: sanitizeFormula(actFormula) };
@@ -686,8 +782,8 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         // variance = target - actual
         const colT = getColumnLetter(2);
         const colA = getColumnLetter(3);
-            const f = `IFERROR(${colT}${rIdx}-${colA}${rIdx},0)`;
-            row.getCell(4).value = { formula: sanitizeFormula(f) };
+        const f = `IFERROR(${colT}${rIdx}-${colA}${rIdx},0)`;
+        row.getCell(4).value = { formula: sanitizeFormula(f) };
     });
 
     // Add a table style area for the weekly pivot
@@ -733,10 +829,24 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         projectData.resources.forEach((res, idx) => {
             const r = sheetPivot.getRow(opStartRow + 2 + idx);
             r.getCell(1).value = res;
-            if (targetRange && dateRange && nameRange) {
-                const tForm = `SUMIFS(${targetRange},${nameRange},"=${res}")`;
-                    r.getCell(2).value = { formula: sanitizeFormula(tForm) };
+
+            let opTarget = 0;
+            if (projectData.targetData) {
+                Object.values(projectData.targetData).forEach(dayTargets => {
+                    const matchedName = Object.keys(dayTargets).find(name => name.toLowerCase() === res.toLowerCase());
+                    if (matchedName) {
+                        opTarget += (dayTargets[matchedName] || 0);
+                    }
+                });
             }
+
+            if (opTarget > 0) {
+                r.getCell(2).value = opTarget;
+            } else if (targetRange && dateRange && nameRange) {
+                const tForm = `SUMIFS(${targetRange},${nameRange},"=${res}")`;
+                r.getCell(2).value = { formula: sanitizeFormula(tForm) };
+            }
+
             if (actualRange && nameRange) {
                 const aForm = `SUMIFS(${actualRange},${nameRange},"=${res}")`;
                 r.getCell(3).value = { formula: sanitizeFormula(aForm) };
@@ -854,7 +964,8 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
         summaryRow.getCell(3).value = 0;
     }
     if (planTaskFormula) {
-        summaryRow.getCell(4).value = { formula: sanitizeFormula(planTaskFormula) };
+        // Use static goal as preferred value for Plan (Task) in Summary
+        summaryRow.getCell(4).value = projectData.goal || 0;
     } else if (derivedTaskCount !== undefined) {
         summaryRow.getCell(4).value = derivedTaskCount;
     } else {

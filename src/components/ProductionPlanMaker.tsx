@@ -98,6 +98,7 @@ const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant
           - The Summary sheet must include these columns: No., Task, Plan (Time/hrs/min), Plan (Task), Actual (Time/hrs/min), Actual (Task), Balance, Completion Rate, and Remarks. Use formulas that pull aggregated data from the DailyProductionTable ranges for the Plan/Actual columns, compute Balance as Plan task minus Actual task, display Completion Rate as Actual/Plan (with error protection), auto-number the rows, and list remarks/statuses such as Completed, Completed ahead of plan, In progress, Delayed, and At risk.
 
           For every PLAN, PIVOT, and DASHBOARD item, you MUST provide an Excel formula that references the 'DailyProductionTable'.
+          ALWAYS use the bracket syntax: 'DailyProductionTable[Column Name]'. For example: 'SUM(DailyProductionTable[Target])'.
           Use {rowIndex} for relative row references in Plan/Pivot.
           
           Once you have the core project details (1-6), you MUST FIRST present the full architecture to the user using well-structured Markdown tables that mirror the exact structure of the columns you will generate. Use clear headings with emojis like "📊 1. Daily Output of [Project Name]", "📈 2. [Project Name] Production Plan", "📊 3. Pivot Tables", and "🎯 4. Summary". Format the tables beautifully. Ensure that the 'Target' field is explicitly displayed as a column in the DailyProductionTable, and populate the table with realistic example values for all fields (apply the **LPB method (Learning, Performance, Breakthrough)** for target distribution: targets should increase gradually over the timeline instead of being uniform. Ensure the sum of these daily targets still matches the **Overall Goal** exactly).
@@ -110,8 +111,8 @@ const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant
           
           CRITICAL: DO NOT call the 'generate_production_plan' tool immediately. You MUST present the tables and explicitly ask the user for confirmation (e.g., "Does this structure look good? Would you like me to generate the Excel file?").
           
-          ONLY AFTER the user confirms the structure (and makes no further adjustments) should you call the 'generate_production_plan' tool to generate the Excel file. (Ensure the 'dailyColumns' includes the Target column with the exact key 'target').
-          
+          ONLY AFTER the user confirms the structure (and makes no further adjustments) should you call the 'generate_production_plan' tool to generate the Excel file. (Ensure the 'dailyColumns' includes the Target column with the exact key 'target'). YOU MUST populate the 'targetData' array with the exact per-day, per-operator targets from your proposed LPB Markdown schedule so the Excel file exactly matches the chat preview. Ensure the output is valid JSON without trailing commas.
+
           IMPORTANT: You are a specialized Production Plan Agent. You must ONLY respond to queries related to production planning, project scheduling, and Excel generation for these plans. 
           If a user asks about unrelated topics (e.g., weather, general knowledge, jokes, other software), politely decline and redirect them back to production planning.
           
@@ -244,6 +245,14 @@ const TOOLS: OpenAI.ChatCompletionTool[] = [
               },
               required: ["date", "name", "actual"],
             },
+          },
+          targetData: {
+            type: "object",
+            description: "A compact map of daily targets: { 'YYYY-MM-DD': { 'Resource Name': targetNumber } }. This MUST exactly match the targets shown in your final confirmed Markdown preview.",
+            additionalProperties: {
+              type: "object",
+              additionalProperties: { type: "number" }
+            }
           },
         },
         required: [
@@ -528,12 +537,30 @@ export default function ProductionPlanMaker() {
         openAiMessages.push({ role: "user", content: fullPrompt });
       }
 
-      const response = await openai.chat.completions.create({
-        model: "minimax/minimax-m2.5",
-        messages: openAiMessages,
-        tools: TOOLS,
-        tool_choice: "auto",
-      });
+      let response;
+      let retries = 0;
+      const maxRetries = 2;
+
+      while (retries <= maxRetries) {
+        try {
+          response = await openai.chat.completions.create({
+            model: "minimax/minimax-m2.5",
+            messages: openAiMessages,
+            tools: TOOLS,
+            tool_choice: "auto",
+          });
+          break; // success
+        } catch (err: any) {
+          if (retries < maxRetries && (err.message?.includes('fetch') || err.message?.includes('network'))) {
+            retries++;
+            await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      if (!response) throw new Error("No response from AI");
 
       const message = response.choices[0]?.message;
 
@@ -544,9 +571,13 @@ export default function ProductionPlanMaker() {
             toolCall.type === "function" &&
             toolCall.function.name === "generate_production_plan"
           ) {
-            const projectData = JSON.parse(
-              toolCall.function.arguments,
-            ) as ProjectData;
+            let projectData: ProjectData;
+            try {
+              projectData = JSON.parse(toolCall.function.arguments) as ProjectData;
+            } catch (e) {
+              console.error("Malformed JSON in tool call arguments:", toolCall.function.arguments);
+              throw e;
+            }
             setCurrentProject(projectData);
 
             const combinedActualData = [...(projectData.actualData || [])];

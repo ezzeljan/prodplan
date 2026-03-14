@@ -56,6 +56,7 @@ export interface ProjectData {
     actualData?: ActualDataItem[];
     columns: ProjectColumn[];
     dailyColumns: DailyColumn[];
+    targetData?: Record<string, Record<string, number>>;
     pivotColumns?: { header: string; formula: string }[];
     dashboardMetrics?: DashboardMetric[];
     overview?: string;
