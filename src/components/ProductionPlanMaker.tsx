@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { saveAs } from "file-saver";
+import { useSearchParams } from "react-router-dom";
 import {
   Bot,
   Plus,
@@ -13,7 +14,7 @@ import {
   FileText,
   Moon,
   Sun,
-  History,
+  Table,
 } from "lucide-react";
 import OpenAI from "openai";
 import ReactMarkdown from "react-markdown";
@@ -36,8 +37,16 @@ import {
   generateSessionTitle,
 } from "./chat/ChatHistorySidebar";
 import ChatHistorySidebar from "./chat/ChatHistorySidebar";
-import { uploadExcelToGoogleDrive } from '../utils/googleDriveService';
-import { useAuth } from "../contexts/AuthContext";
+import ProjectSetupView from "./chat/ProjectSetupView";
+
+
+import { useAISpreadsheet } from "../contexts/AISpreadsheetContext";
+import { projectDataToSpreadsheet } from "../utils/spreadsheetConverter";
+import { useNavigate } from "react-router-dom";
+import { storage } from "../utils/storageProvider";
+import type { UnifiedProject } from "../utils/projectStorage";
+import { clearAllProjects } from "../utils/projectStorage";
+import { clearAllPlans } from "../utils/planStorage";
 
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -124,6 +133,14 @@ const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant
           | value 1  | value 2  | value 3  |
 
           Never use any other format for tables. Always include the |---|---| separator row.`;
+
+const getSystemInstruction = (projectName?: string) => {
+    let base = SYSTEM_INSTRUCTION;
+    if (projectName) {
+        base += `\n\nCONTEXT: You are currently working ONLY for the project folder: "${projectName}". All your suggestions, plans, and technical architectures MUST be specifically for this project. When the user asks for changes, you should assume they refer to this project's spreadsheets.`;
+    }
+    return base;
+};
 
 const TOOLS: OpenAI.ChatCompletionTool[] = [
   {
@@ -296,19 +313,13 @@ export default function ProductionPlanMaker() {
     new Set(),
   );
   const [rejectedMsgIds, setRejectedMsgIds] = useState<Set<string>>(new Set());
+  const [lastSavedProjectId, setLastSavedProjectId] = useState<string>('');
+  const [isProjectStarted, setIsProjectStarted] = useState(false);
+  const [currentProjectName, setCurrentProjectName] = useState('');
 
-  const { googleToken, login, logout } = useAuth();
-
-  const requestReauth = (reason: string) => {
-    const reauthMsgId = Date.now().toString();
-    setMessages((prev) => [
-      ...prev,
-      { id: reauthMsgId, role: "agent", content: "" },
-    ]);
-    typewriterEffect(reason, reauthMsgId);
-    logout();
-    setTimeout(() => login(), 100);
-  };
+  const { setLastCreated } = useAISpreadsheet();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     if (isDark) {
@@ -328,15 +339,56 @@ export default function ProductionPlanMaker() {
 
   useEffect(() => {
     const stored = loadSessions();
+    const paramProjectId = searchParams.get('projectId');
+
+    if (paramProjectId) {
+        // 🎯 Deep Link Logic: The user clicked "Talk to AI Agent" from a project
+        setIsProjectStarted(true);
+        setLastSavedProjectId(paramProjectId);
+        
+        // Find existing session for this project
+        const existingSession = stored.find(s => s.projectId === paramProjectId);
+        if (existingSession) {
+            setActiveSessionId(existingSession.id);
+            setMessages(existingSession.messages);
+        } else {
+            // New session for this project
+            const newId = Date.now().toString();
+            setActiveSessionId(newId);
+            setMessages([]);
+        }
+        
+        // Load project name for system instructions
+        storage.getProject(paramProjectId).then(p => {
+            if (p) {
+                setCurrentProjectName(p.name);
+                setCurrentProject(p as Partial<ProjectData>);
+            }
+        });
+        
+        if (stored.length > 0) setSessions(stored);
+        return;
+    }
+
     if (stored.length > 0) {
       setSessions(stored);
       const last = stored[stored.length - 1];
       setActiveSessionId(last.id);
       setMessages(last.messages);
+      if (last.projectId) {
+          setLastSavedProjectId(last.projectId);
+          setIsProjectStarted(true);
+          storage.getProject(last.projectId).then(p => {
+              if (p) setCurrentProjectName(p.name);
+          });
+      } else {
+          setIsProjectStarted(false);
+          setLastSavedProjectId('');
+      }
     } else {
       setActiveSessionId(Date.now().toString());
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!activeSessionId) return;
@@ -349,7 +401,7 @@ export default function ProductionPlanMaker() {
       if (exists) {
         updated = filtered.map((s) =>
           s.id === activeSessionId
-            ? { ...s, messages, title: generateSessionTitle(messages) }
+            ? { ...s, messages, title: generateSessionTitle(messages), projectId: lastSavedProjectId }
             : s,
         );
       } else {
@@ -360,6 +412,7 @@ export default function ProductionPlanMaker() {
             title: generateSessionTitle(messages),
             createdAt: new Date().toISOString(),
             messages,
+            projectId: lastSavedProjectId
           },
         ];
       }
@@ -423,6 +476,37 @@ export default function ProductionPlanMaker() {
     }, 100);
   };
 
+  const handleStartProject = async (projectName: string) => {
+    setCurrentProjectName(projectName);
+    const projectId = `proj-${Date.now()}`;
+    setLastSavedProjectId(projectId);
+    setIsProjectStarted(true);
+
+    const initialProject: UnifiedProject = {
+      id: projectId,
+      name: projectName,
+      goal: 0,
+      unit: '',
+      startDate: new Date().toLocaleDateString('en-CA'),
+      endDate: new Date().toLocaleDateString('en-CA'),
+      resources: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      spreadsheetData: { columns: [], rows: [], merges: [] },
+      status: 'draft',
+      outputs: [],
+    };
+
+    await storage.saveProject(initialProject);
+
+    const initialMsg: Message = {
+      id: Date.now().toString(),
+      role: 'agent',
+      content: `I've created the project folder for **${projectName}**. I'm now focused exclusively on this workspace. \n\nPlease provide the project details (Goal, Dates, Resources, etc.) or upload an instruction file to begin building the plan.`,
+    };
+    setMessages([initialMsg]);
+  };
+
   const handleModifyStructure = (msgId: string) => {
     setRejectedMsgIds((prev) => new Set([...prev, msgId]));
     setInputValue("I'd like to modify the structure. ");
@@ -467,12 +551,6 @@ export default function ProductionPlanMaker() {
   };
 
   const handleSendMessage = async () => {
-    if (!googleToken) {
-      requestReauth(
-        "I lost your Google Drive session. Please sign in again so I can continue uploading plans.",
-      );
-      return;
-    }
     if ((!inputValue.trim() && !currentFile) || isTyping || isStreaming) return;
 
     const contextPreamble = currentProject
@@ -507,7 +585,7 @@ export default function ProductionPlanMaker() {
 
     try {
       const openAiMessages: OpenAI.ChatCompletionMessageParam[] = [
-        { role: "system", content: SYSTEM_INSTRUCTION },
+        { role: "system", content: getSystemInstruction(currentProjectName) },
         ...messages.map((m) => {
           if (m.attachment && m.attachment.type.startsWith("image/")) {
             return {
@@ -520,7 +598,7 @@ export default function ProductionPlanMaker() {
           }
           return {
             role: m.role === "user" ? "user" : "assistant",
-            content: m.content,
+            content: m.content || (m.type === 'file' ? `[Generated File: ${m.fileData?.name}]` : "Processing..."),
           } as OpenAI.ChatCompletionMessageParam;
         }),
       ];
@@ -544,7 +622,7 @@ export default function ProductionPlanMaker() {
       while (retries <= maxRetries) {
         try {
           response = await openai.chat.completions.create({
-            model: "minimax/minimax-m2.5",
+            model: retries === 0 ? "google/gemini-2.0-flash-001" : "google/gemini-flash-1.5", 
             messages: openAiMessages,
             tools: TOOLS,
             tool_choice: "auto",
@@ -598,94 +676,56 @@ export default function ProductionPlanMaker() {
               ? message.content + "\n\n"
               : "";
 
-            let sheetUrl: string | undefined;
-
-            if (googleToken) {
-              try {
-                sheetUrl = await uploadExcelToGoogleDrive(
-                  buffer,
-                  `${projectData.name.replace(/\s+/g, "_")}_Production_Planning`,
-                  googleToken,
-                );
-
-                const successText = `${generatedText}I've generated the production plan for **${projectData.name}** and uploaded it to your Google Drive!`;
-
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: msgId,
-                    role: "agent",
-                    content: "", // Content will be typed
-                    type: "google-sheet",
-                    fileData: {
-                      name: "View Google Sheet",
-                      url: sheetUrl,
-                    },
-                  },
-                ]);
-                typewriterEffect(successText, msgId);
-              } catch (error) {
-                const authError = (error as any)?.isAuthError;
-                if (authError) {
-                  const authMsg = Date.now().toString();
-                  setMessages((prev) => [
-                    ...prev,
-                    { id: authMsg, role: "agent", content: "" },
-                  ]);
-                  typewriterEffect(
-                    "Your Google Drive session expired. I'll ask you to sign in again so I can upload the plan when you're ready.",
-                    authMsg,
-                  );
-                  logout();
-                  setTimeout(() => login(), 100);
-                } else {
-                  console.error("Google Drive Upload Error", error);
-                  const fallbackText = `${generatedText}I generated the production plan, but there was an error uploading it to Google Drive. You can download the Excel file below locally.`;
-                  setMessages((prev) => [
-                    ...prev,
-                    {
-                      id: msgId,
-                      role: "agent",
-                      content: "",
-                      type: "file",
-                      fileData: {
-                        name: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
-                        buffer: buffer,
-                      },
-                    },
-                  ]);
-                  typewriterEffect(fallbackText, msgId);
-                }
-              }
-            }
-
-            if (!googleToken) {
-              const successText = `${generatedText}I've generated the production plan for **${projectData.name}**. You can download it below. Log in with Google first if you'd like me to upload it to Google Drive!`;
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: msgId,
-                  role: "agent",
-                  content: "",
-                  type: "file",
-                  fileData: {
-                    name: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
-                    buffer: buffer,
-                  },
+            const successText = `${generatedText}I've generated the production plan for **${projectData.name}**. You can download the Excel file below or view it in the web spreadsheet.`;
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: msgId,
+                role: "agent",
+                content: "",
+                type: "file",
+                fileData: {
+                  name: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
+                  buffer: buffer,
                 },
-              ]);
-              typewriterEffect(successText, msgId);
-            }
+              },
+            ]);
+            typewriterEffect(successText, msgId);
 
-            // ✅ Save to IndexedDB storage (including Google Sheet link when available)
             await savePlan({
               id: Date.now().toString(),
               projectName: projectData.name,
               fileName: `${projectData.name.replace(/\s+/g, "_")}_Production_Planning.xlsx`,
               createdAt: new Date().toISOString(),
               buffer: buffer,
-              googleSheetUrl: sheetUrl,
             });
+
+            // Save to unified project storage for the Projects page
+            let savedProjectId = '';
+            try {
+              const spreadsheetData = projectDataToSpreadsheet(projectData);
+              savedProjectId = lastSavedProjectId || `proj-${Date.now()}`;
+              const unifiedProject: UnifiedProject = {
+                id: savedProjectId,
+                name: projectData.name,
+                overview: projectData.overview,
+                goal: projectData.goal,
+                unit: projectData.unit,
+                startDate: projectData.startDate,
+                endDate: projectData.endDate,
+                resources: projectData.resources,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                spreadsheetData,
+                status: 'active',
+                outputs: [],
+              };
+              await storage.saveProject(unifiedProject);
+              setLastCreated(savedProjectId);
+              setLastSavedProjectId(savedProjectId);
+            } catch (convError) {
+              console.warn('Could not save to project storage:', convError);
+            }
           }
         }
       } else {
@@ -707,7 +747,7 @@ export default function ProductionPlanMaker() {
         { id: msgId, role: "agent", content: "" },
       ]);
       typewriterEffect(
-        "Something went wrong. Please try again.",
+        `Something went wrong: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
         msgId,
       );
     } finally {
@@ -742,21 +782,11 @@ export default function ProductionPlanMaker() {
     if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
     setIsStreaming(false);
     const newId = Date.now().toString();
-    setSessions((prev) => {
-      const updated = [
-        ...prev,
-        {
-          id: newId,
-          title: "New Chat",
-          createdAt: new Date().toISOString(),
-          messages: [],
-        },
-      ];
-      saveSessions(updated);
-      return updated;
-    });
     setActiveSessionId(newId);
     setMessages([]);
+    setLastSavedProjectId('');
+    setIsProjectStarted(false);
+    setCurrentProjectName('');
     setUploadedData(null);
     setFileName(null);
     setCurrentFile(null);
@@ -769,6 +799,17 @@ export default function ProductionPlanMaker() {
     setIsStreaming(false);
     setActiveSessionId(session.id);
     setMessages(session.messages);
+    if (session.projectId) {
+      setLastSavedProjectId(session.projectId);
+      setIsProjectStarted(true);
+      storage.getProject(session.projectId).then(p => {
+          if (p) setCurrentProjectName(p.name);
+      });
+    } else {
+      setLastSavedProjectId('');
+      setIsProjectStarted(false);
+      setCurrentProjectName('');
+    }
     setUploadedData(null);
     setFileName(null);
     setCurrentFile(null);
@@ -800,6 +841,22 @@ export default function ProductionPlanMaker() {
     startNewSession();
   };
 
+  const handleNuclearReset = async () => {
+    // 1. Clear IndexedDB
+    await clearAllProjects();
+    await clearAllPlans();
+    
+    // 2. Clear localStorage
+    saveSessions([]);
+    
+    // 3. Reset UI state
+    setSessions([]);
+    startNewSession();
+    
+    // 4. Force reload or just rely on state reset
+    alert("Application reset successfully. All data has been wiped.");
+  };
+
   return (
     <div
       className={`w-full h-[calc(100vh-4rem)] md:h-screen flex overflow-hidden relative transition-colors duration-300 ${isDark ? "bg-[#171717]" : "bg-[#f8f9fa]"
@@ -828,9 +885,7 @@ export default function ProductionPlanMaker() {
         onLoadSession={loadSession}
         onDeleteSession={handleDeleteSession}
         onDeleteAllSessions={handleDeleteAllSessions}
-        googleToken={googleToken}
-        onLogin={login}
-        onLogout={logout}
+        onDeleteAllData={handleNuclearReset}
       />
       {showSidebar && (
         <div
@@ -842,15 +897,22 @@ export default function ProductionPlanMaker() {
 
       {/* ── Main Chat ── */}
       <div className="flex-1 flex flex-col min-w-0 relative">
-        {/* Background blobs */}
-        <div
-          className={`absolute top-[5%] left-[5%] w-100 h-100 rounded-full blur-[100px] pointer-events-none ${isDark ? "bg-zinc-800/20" : "bg-slate-200/40"
-            }`}
-        />
-        <div
-          className={`absolute bottom-[20%] right-[10%] w-125 h-125 rounded-full blur-[120px] pointer-events-none ${isDark ? "bg-zinc-700/10" : "bg-zinc-200/30"
-            }`}
-        />
+        {!isProjectStarted ? (
+          <ProjectSetupView 
+            onComplete={handleStartProject} 
+            onReset={handleNuclearReset}
+          />
+        ) : (
+          <>
+            {/* Background blobs */}
+            <div
+              className={`absolute top-[5%] left-[5%] w-100 h-100 rounded-full blur-[100px] pointer-events-none ${isDark ? "bg-zinc-800/20" : "bg-slate-200/40"
+                }`}
+            />
+            <div
+              className={`absolute bottom-[20%] right-[10%] w-125 h-125 rounded-full blur-[120px] pointer-events-none ${isDark ? "bg-zinc-700/10" : "bg-zinc-200/30"
+                }`}
+            />
 
         {/* Drag Overlay */}
         {isDragging && (
@@ -884,7 +946,7 @@ export default function ProductionPlanMaker() {
               <h1
                 className={`text-[15px] font-bold leading-none ${isDark ? "text-gray-100" : "text-[#133020]"}`}
               >
-                Production Plan Agent
+                {currentProjectName || "Production Plan Agent"}
               </h1>
               <div
                 className={`text-[11px] leading-none flex items-center gap-1.5 ${isDark ? "text-emerald-400" : "text-[#046241]"}`}
@@ -893,7 +955,7 @@ export default function ProductionPlanMaker() {
                   className="w-1.5 h-1.5 rounded-full inline-block"
                   style={{ backgroundColor: "#046241" }}
                 ></span>
-                Powered by Lifewood AI
+                Powered by Lifewood AI (v1.1)
               </div>
             </div>
           </div>
@@ -1226,6 +1288,29 @@ export default function ProductionPlanMaker() {
                     </button>
                   )
                 )}
+
+                {/* View in Spreadsheet button */}
+                {(msg.type === "file" || msg.type === "google-sheet") && msg.fileData && !isStreaming && lastSavedProjectId && (
+                  <button
+                    onClick={() => navigate(`/projects/${lastSavedProjectId}`)}
+                    className="flex items-center gap-3 p-3 rounded-xl w-full transition-all text-left hover:opacity-90 mt-2"
+                    style={{
+                      backgroundColor: '#046241',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                    }}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}
+                    >
+                      <Table className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm text-white">View in Spreadsheet</p>
+                      <p className="text-[11px] text-white/70">Open in the editable web spreadsheet</p>
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -1276,66 +1361,16 @@ export default function ProductionPlanMaker() {
           {messages.length === 0 && (
             <div className="flex flex-col items-center pointer-events-auto mb-6">
               <h2
-                className={`text-3xl md:text-5xl font-normal mb-8 tracking-tight text-center transition-colors duration-300 ${isDark ? "text-gray-100" : "text-[#133020]"}`}
+                className={`text-3xl md:text-5xl font-normal tracking-tight text-center transition-colors duration-300 ${isDark ? "text-gray-100" : "text-[#133020]"}`}
               >
-                {googleToken ? "What's on the agenda today?" : "Welcome to Production Plan Agent"}
+                What's on the agenda today?
               </h2>
-              {!googleToken ? (
-                <div className="flex flex-col items-center gap-4">
-                  <p className={`text-lg transition-colors mb-4 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                    Please sign in with Google to start planning and saving to Drive.
-                  </p>
-                  <button
-                    onClick={() => login()}
-                    className="flex items-center gap-3 px-6 py-3 rounded-full font-semibold text-white shadow-lg transition-all hover:scale-105 active:scale-95"
-                    style={{ backgroundColor: "#046241" }}
-                  >
-                    <UserIcon className="w-5 h-5" />
-                    Sign in with Google
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {[
-                    {
-                      label: "📦 Manufacturing Plan",
-                      prompt: "I need a manufacturing production plan.",
-                    },
-                    {
-                      label: "⏱️ Hours Tracking",
-                      prompt: "I need an hours tracking production plan.",
-                    },
-                    {
-                      label: "💰 Revenue Target",
-                      prompt: "I need a revenue target production plan.",
-                    },
-                    {
-                      label: "👥 Team Output",
-                      prompt: "I need a team output production plan.",
-                    },
-                  ].map((chip) => (
-                    <button
-                      key={chip.label}
-                      onClick={() => {
-                        setInputValue(chip.prompt);
-                        textareaRef.current?.focus();
-                      }}
-                      className={`px-4 py-2 rounded-full text-sm font-medium border transition-all hover:scale-105 active:scale-95 ${isDark
-                        ? "bg-zinc-800/80 border-white/10 text-gray-200 hover:bg-zinc-700 hover:border-white/20"
-                        : "bg-white/80 border-[#e5e0d5] text-[#133020] hover:bg-white hover:border-[#046241]"
-                        }`}
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           )}
           <div
             className={`w-full max-w-5xl p-2 rounded-3xl space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${isDark ? "bg-zinc-800/60 border-zinc-600"
               : "bg-white/50 border-[#e5e0d5] shadow-xl"
-              } ${!googleToken ? "opacity-50 pointer-events-none grayscale" : ""}`}
+              }`}
           >
             {fileName && (
               <div
@@ -1452,6 +1487,8 @@ export default function ProductionPlanMaker() {
               </p>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

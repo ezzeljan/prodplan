@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
 @layer base {
-
     html,
     body {
         font-family: 'Manrope', sans-serif;
@@ -14,8 +13,206 @@
 
     textarea {
         -ms-overflow-style: none;
-        /* IE and Edge */
         scrollbar-width: none;
-        /* Firefox */
     }
 }
+
+/* ─── Glassmorphism Design System ─── */
+
+:root {
+    --glass-bg: rgba(255, 255, 255, 0.08);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    --glass-blur: 16px;
+
+    --surface-primary: #0d1f17;
+    --surface-secondary: #132a1e;
+    --surface-card: rgba(19, 48, 32, 0.6);
+
+    --accent-primary: #046241;
+    --accent-secondary: #0a8a5e;
+    --accent-glow: rgba(4, 98, 65, 0.3);
+
+    --text-primary: #f0faf5;
+    --text-secondary: rgba(240, 250, 245, 0.7);
+    --text-muted: rgba(240, 250, 245, 0.45);
+
+    --gradient-hero: linear-gradient(135deg, #0d1f17 0%, #133020 40%, #1a4028 70%, #0d1f17 100%);
+    --gradient-card: linear-gradient(135deg, rgba(19, 48, 32, 0.8), rgba(13, 31, 23, 0.6));
+    --gradient-accent: linear-gradient(135deg, #046241, #0a8a5e);
+
+    --metric-green: #34d399;
+    --metric-amber: #fbbf24;
+    --metric-red: #f87171;
+    --metric-blue: #60a5fa;
+    --metric-purple: #a78bfa;
+}
+
+/* Glass card base */
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: var(--glass-shadow);
+}
+
+.glass-card-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card-hover:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2), 0 0 20px var(--accent-glow);
+    transform: translateY(-2px);
+}
+
+/* Glass input */
+.glass-input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+}
+
+.glass-input:focus {
+    outline: none;
+    border-color: var(--accent-secondary);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.glass-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* Glass button */
+.glass-btn {
+    background: var(--gradient-accent);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-btn:hover {
+    box-shadow: 0 4px 20px var(--accent-glow), 0 0 30px var(--accent-glow);
+    transform: translateY(-1px);
+}
+
+.glass-btn:active {
+    transform: translateY(0);
+}
+
+.glass-btn-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.glass-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Metric card colors */
+.metric-green { color: var(--metric-green); }
+.metric-amber { color: var(--metric-amber); }
+.metric-red { color: var(--metric-red); }
+.metric-blue { color: var(--metric-blue); }
+.metric-purple { color: var(--metric-purple); }
+
+.metric-green-bg { background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.2); }
+.metric-amber-bg { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.2); }
+.metric-red-bg { background: rgba(248, 113, 113, 0.1); border-color: rgba(248, 113, 113, 0.2); }
+.metric-blue-bg { background: rgba(96, 165, 250, 0.1); border-color: rgba(96, 165, 250, 0.2); }
+.metric-purple-bg { background: rgba(167, 139, 250, 0.1); border-color: rgba(167, 139, 250, 0.2); }
+
+/* Animated gradient background */
+.gradient-bg {
+    background: var(--gradient-hero);
+    position: relative;
+}
+
+.gradient-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-glow), transparent);
+    pointer-events: none;
+}
+
+/* Scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* Pulse glow animation */
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 10px var(--accent-glow); }
+    50% { box-shadow: 0 0 25px var(--accent-glow), 0 0 40px rgba(4, 98, 65, 0.15); }
+}
+
+.pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* Fade in animation */
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fade-in-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Staggered children animation */
+.stagger-children > * {
+    opacity: 0;
+    animation: fade-in-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+.stagger-children > *:nth-child(7) { animation-delay: 0.35s; }
+.stagger-children > *:nth-child(8) { animation-delay: 0.4s; }
+.stagger-children > *:nth-child(9) { animation-delay: 0.45s; }
+.stagger-children > *:nth-child(10) { animation-delay: 0.5s; }
+.stagger-children > *:nth-child(11) { animation-delay: 0.55s; }
+.stagger-children > *:nth-child(12) { animation-delay: 0.6s; }

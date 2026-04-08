@@ -1,23 +1,21 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, User, LogOut, AlertTriangle } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
-import { motion, AnimatePresence } from "motion/react";
-import { navigation } from "../../data/Navigation";
+import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, BarChart3, FolderOpen } from "lucide-react";
+import { useAISpreadsheet } from "../../contexts/AISpreadsheetContext";
 import logo from "../../assets/lifewood-logo.png";
 import icon from "../../assets/icon.png";
 
-// Extend navigation with icons if possible
 const navWithIcons = [
   { label: "Home", href: "/", icon: <Home className="w-5 h-5" /> },
+  { label: "Projects", href: "/projects", icon: <FolderOpen className="w-5 h-5" /> },
+  { label: "Dashboard", href: "/dashboard", icon: <BarChart3 className="w-5 h-5" /> },
   { label: "Production Plan", href: "/production-plan", icon: <FileSpreadsheet className="w-5 h-5" /> },
 ];
 
 const Navbar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const { isSignedIn, login, logout } = useAuth();
+  const { hasNewData } = useAISpreadsheet();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -84,7 +82,9 @@ const Navbar = () => {
             }`}
         >
           {navWithIcons.map((item) => {
-            const isActive = location.pathname === item.href;
+            const isActive = item.href === '/projects'
+              ? location.pathname === '/projects' || location.pathname.startsWith('/projects/')
+              : location.pathname === item.href;
             return (
               <Link
                 key={item.label}
@@ -98,7 +98,12 @@ const Navbar = () => {
                   }`}
                 title={!isExpanded ? item.label : undefined}
               >
-                <div className="flex-shrink-0">{item.icon}</div>
+                <div className="flex-shrink-0 relative">
+                  {item.icon}
+                  {item.label === 'Projects' && hasNewData && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[var(--accent-secondary)] rounded-full animate-pulse" />
+                  )}
+                </div>
                 <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
                   {item.label}
                 </span>
@@ -112,7 +117,6 @@ const Navbar = () => {
           className={`border-t border-white/10 mt-auto flex flex-col gap-2 ${isExpanded ? "p-3" : "px-0 py-3"
             }`}
         >
-          {/* Toggle History Sidebar */}
           <button
             onClick={() => {
               if (location.pathname !== "/") {
@@ -139,29 +143,6 @@ const Navbar = () => {
             <div className="flex-shrink-0"><History className="w-5 h-5" /></div>
             <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
               Chat History
-            </span>
-          </button>
-
-          {/* Account Sign In/Out */}
-          <button
-            onClick={() => {
-              if (isSignedIn) {
-                setShowSignOutConfirm(true);
-              } else {
-                login();
-              }
-            }}
-            className={`flex items-center rounded-full transition-colors text-white/70 hover:bg-white/10 hover:text-white ${isExpanded
-              ? "justify-start gap-4 px-3 py-3 w-full"
-              : "justify-center w-12 h-12 mx-auto"
-              }`}
-            title={!isExpanded ? (isSignedIn ? "Sign Out" : "Sign In") : undefined}
-          >
-            <div className="flex-shrink-0">
-              {isSignedIn ? <LogOut className="w-5 h-5" /> : <User className="w-5 h-5" />}
-            </div>
-            <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
-              {isSignedIn ? "Sign Out" : "Sign In"}
             </span>
           </button>
         </div>
@@ -209,7 +190,9 @@ const Navbar = () => {
             </div>
             <div className="flex flex-col gap-2 p-4">
               {navWithIcons.map((item) => {
-                const isActive = location.pathname === item.href;
+                const isActive = item.href === '/projects'
+                  ? location.pathname === '/projects' || location.pathname.startsWith('/projects/')
+                  : location.pathname === item.href;
                 return (
                   <Link
                     key={item.label}
@@ -225,74 +208,10 @@ const Navbar = () => {
                   </Link>
                 );
               })}
-
-              <div className="w-full h-px bg-white/10 my-2"></div>
-
-              <button
-                onClick={() => {
-                  if (isSignedIn) {
-                    setShowSignOutConfirm(true);
-                  } else {
-                    login();
-                  }
-                  setMobileOpen(false);
-                }}
-                className="flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors text-white/70 hover:bg-white/10 hover:text-white w-full text-left"
-              >
-                {isSignedIn ? <LogOut className="w-5 h-5" /> : <User className="w-5 h-5" />}
-                {isSignedIn ? "Sign Out" : "Sign In"}
-              </button>
             </div>
           </div>
         </div>
       )}
-      {/* Sign Out Confirmation Modal */}
-      <AnimatePresence>
-        {showSignOutConfirm && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowSignOutConfirm(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-sm bg-[#133020] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
-            >
-              <div className="p-6">
-                <div className="flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-red-500/10 text-red-500">
-                  <AlertTriangle className="w-6 h-6" />
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">Sign Out</h3>
-                <p className="text-white/60">
-                  Are you sure you want to sign out of your account?
-                </p>
-              </div>
-              <div className="flex border-t border-white/10">
-                <button
-                  onClick={() => setShowSignOutConfirm(false)}
-                  className="flex-1 px-4 py-4 text-sm font-medium text-white/70 hover:bg-white/5 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    logout();
-                    setShowSignOutConfirm(false);
-                  }}
-                  className="flex-1 px-4 py-4 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors border-l border-white/10"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </>
   );
 };

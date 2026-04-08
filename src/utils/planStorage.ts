@@ -54,3 +54,13 @@ export const deletePlan = async (id: string): Promise<void> => {
         tx.onerror = () => reject(tx.error);
     });
 };
+
+export const clearAllPlans = async (): Promise<void> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+};

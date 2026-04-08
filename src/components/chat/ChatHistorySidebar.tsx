@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, LogOut, User, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Trash2, AlertTriangle, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export interface Message {
@@ -20,6 +20,7 @@ export interface ChatSession {
     title: string;
     createdAt: string;
     messages: Message[];
+    projectId?: string; // Links the chat to the specific project folder
 }
 
 export const STORAGE_KEY = 'productionPlanChatHistory';
@@ -60,9 +61,7 @@ interface ChatHistorySidebarProps {
     onLoadSession: (session: ChatSession) => void;
     onDeleteSession: (sessionId: string) => void;
     onDeleteAllSessions: () => void;
-    googleToken: string | null;
-    onLogin: () => void;
-    onLogout: () => void;
+    onDeleteAllData: () => void;
 }
 
 export default function ChatHistorySidebar({
@@ -73,9 +72,7 @@ export default function ChatHistorySidebar({
     onLoadSession,
     onDeleteSession,
     onDeleteAllSessions,
-    googleToken,
-    onLogin,
-    onLogout,
+    onDeleteAllData,
 }: ChatHistorySidebarProps) {
     const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
     return (
@@ -146,32 +143,19 @@ export default function ChatHistorySidebar({
                     ))}
                 </div>
 
-                {/* Account Section */}
-                <div className="p-4" style={{ borderTop: "1px solid #046241" }}>
-                    {googleToken ? (
-                        <button
-                            onClick={onLogout}
-                            className="w-full flex items-center justify-between p-2 rounded-full transition-colors hover:bg-white/10"
-                            style={{ color: "#FFB347" }}
-                        >
-                            <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-emerald-700/50 flex items-center justify-center">
-                                    <User className="w-3 h-3 text-emerald-300" />
-                                </div>
-                                <span className="text-sm font-medium text-white">Drive Connected</span>
-                            </div>
-                            <LogOut className="w-4 h-4 opacity-70 hover:opacity-100" />
-                        </button>
-                    ) : (
-                        <button
-                            onClick={onLogin}
-                            className="w-full flex items-center justify-center gap-2 p-2 rounded-full transition-colors bg-white/10 hover:bg-white/20"
-                            style={{ color: "#FFC370" }}
-                        >
-                            <User className="w-4 h-4" />
-                            <span className="text-sm font-medium">Connect Drive</span>
-                        </button>
-                    )}
+                {/* Delete All Data Button */}
+                <div className="p-4 border-t border-[#046241]">
+                    <button
+                        onClick={() => {
+                            if (window.confirm("ARE YOU SURE? This will permanently delete all projects, chat histories, and production plans across the entire application.")) {
+                                onDeleteAllData();
+                            }
+                        }}
+                        className="w-full py-3 px-4 rounded-xl flex items-center justify-center gap-3 text-sm font-bold transition-all hover:scale-[1.02] active:scale-[0.98] bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
+                    >
+                        <Database className="w-4 h-4" />
+                        <span>Delete All Data</span>
+                    </button>
                 </div>
             </div>
 
