@@ -75,7 +75,7 @@ export default function ProductionPlanStorage() {
     });
 
     return (
-        <div className={`flex-1 h-screen overflow-y-auto transition-colors duration-300 ${isDark ? 'bg-[#171717]' : 'bg-[#f8f9fa]'}`}>
+        <div className={`flex-1 h-screen overflow-y-auto transition-colors duration-300 ${isDark ? 'bg-[#151516]' : 'bg-[#F9F7F7]'}`}>
             <div className="max-w-4xl mx-auto px-6 py-10">
 
                 {/* Header */}

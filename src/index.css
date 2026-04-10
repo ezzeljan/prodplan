@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+@variant dark (&:where(.dark, .dark *));    
 @layer base {
     html,
     body {
@@ -19,15 +19,51 @@
 
 /* ─── Glassmorphism Design System ─── */
 
+/* LIGHT MODE (default) */
 :root {
     --glass-bg: rgba(255, 255, 255, 0.08);
     --glass-border: rgba(255, 255, 255, 0.12);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     --glass-blur: 16px;
 
-    --surface-primary: #0d1f17;
-    --surface-secondary: #132a1e;
-    --surface-card: rgba(19, 48, 32, 0.6);
+    --surface-primary: #F9F7F7;
+    --surface-secondary: #ede9e9;
+    --surface-card: rgba(249, 247, 247, 0.9);
+    --surface-nav: rgba(249, 247, 247, 0.95);
+
+    --accent-primary: #046241;
+    --accent-secondary: #0a8a5e;
+    --accent-glow: rgba(4, 98, 65, 0.2);
+
+    --text-primary: #1a1a1a;
+    --text-secondary: rgba(26, 26, 26, 0.7);
+    --text-muted: rgba(26, 26, 26, 0.45);
+
+    --gradient-hero: linear-gradient(135deg, #F9F7F7 0%, #ede9e9 40%, #e5e0e0 70%, #F9F7F7 100%);
+    --gradient-card: linear-gradient(135deg, rgba(249, 247, 247, 0.9), rgba(237, 233, 233, 0.8));
+    --gradient-accent: linear-gradient(135deg, #046241, #0a8a5e);
+
+    --border-color: rgba(0, 0, 0, 0.08);
+    --border-hover: rgba(0, 0, 0, 0.15);
+
+    --metric-green: #059669;
+    --metric-amber: #d97706;
+    --metric-red: #dc2626;
+    --metric-blue: #2563eb;
+    --metric-purple: #7c3aed;
+}
+
+/* DARK MODE */
+:root.dark {
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --glass-blur: 16px;
+
+    --surface-primary: #151516;
+    --surface-secondary: #1e1e1f;
+    --surface-card: rgba(30, 30, 31, 0.8);
+    --surface-nav: rgba(21, 21, 22, 0.95);
 
     --accent-primary: #046241;
     --accent-secondary: #0a8a5e;
@@ -37,15 +73,25 @@
     --text-secondary: rgba(240, 250, 245, 0.7);
     --text-muted: rgba(240, 250, 245, 0.45);
 
-    --gradient-hero: linear-gradient(135deg, #0d1f17 0%, #133020 40%, #1a4028 70%, #0d1f17 100%);
-    --gradient-card: linear-gradient(135deg, rgba(19, 48, 32, 0.8), rgba(13, 31, 23, 0.6));
+    --gradient-hero: linear-gradient(135deg, #151516 0%, #1e1e1f 40%, #222223 70%, #151516 100%);
+    --gradient-card: linear-gradient(135deg, rgba(30, 30, 31, 0.8), rgba(21, 21, 22, 0.6));
     --gradient-accent: linear-gradient(135deg, #046241, #0a8a5e);
+
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.15);
 
     --metric-green: #34d399;
     --metric-amber: #fbbf24;
     --metric-red: #f87171;
     --metric-blue: #60a5fa;
     --metric-purple: #a78bfa;
+}
+
+/* ─── Apply variables to base elements ─── */
+body {
+    background-color: var(--surface-primary);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Glass card base */

@@ -887,7 +887,7 @@ export default function ProductionPlanMaker() {
 
   return (
     <div
-      className={`w-full h-[calc(100vh-4rem)] md:h-screen flex overflow-hidden relative transition-colors duration-300 ${isDark ? "bg-[#171717]" : "bg-[#f8f9fa]"
+      className={`w-full h-[calc(100vh-4rem)] md:h-screen flex overflow-hidden relative transition-colors duration-300 ${isDark ? "bg-[#151516]" : "bg-[#F9F7F7]"
         }`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -1380,8 +1380,8 @@ export default function ProductionPlanMaker() {
             messages.length === 0
               ? "absolute inset-0 flex flex-col items-center justify-center p-4 z-20 pointer-events-none"
               : `absolute bottom-0 left-0 w-full pb-6 pt-12 px-4 flex justify-center z-20 pointer-events-none bg-linear-to-t ${isDark
-                ? "from-[#171717] via-[#171717]/90"
-                : "from-[#f8f9fa] via-[#f8f9fa]/90"
+                ? "from-[#151516] via-[#151516]/90"
+                : "from-[#F9F7F7] via-[#F9F7F7]/90"
               } to-transparent transition-colors duration-300`
           }
         >
