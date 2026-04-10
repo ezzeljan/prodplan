@@ -342,23 +342,19 @@ export default function ProductionPlanMaker() {
     const paramProjectId = searchParams.get('projectId');
 
     if (paramProjectId) {
-        // 🎯 Deep Link Logic: The user clicked "Talk to AI Agent" from a project
         setIsProjectStarted(true);
         setLastSavedProjectId(paramProjectId);
         
-        // Find existing session for this project
         const existingSession = stored.find(s => s.projectId === paramProjectId);
         if (existingSession) {
             setActiveSessionId(existingSession.id);
             setMessages(existingSession.messages);
         } else {
-            // New session for this project
             const newId = Date.now().toString();
             setActiveSessionId(newId);
             setMessages([]);
         }
         
-        // Load project name for system instructions
         storage.getProject(paramProjectId).then(p => {
             if (p) {
                 setCurrentProjectName(p.name);
@@ -401,7 +397,13 @@ export default function ProductionPlanMaker() {
       if (exists) {
         updated = filtered.map((s) =>
           s.id === activeSessionId
-            ? { ...s, messages, title: generateSessionTitle(messages), projectId: lastSavedProjectId }
+            ? {
+                ...s,
+                messages,
+                title: generateSessionTitle(messages),
+                projectId: lastSavedProjectId,
+                projectName: currentProjectName, // ✅ FIX: persist project name
+              }
             : s,
         );
       } else {
@@ -412,7 +414,8 @@ export default function ProductionPlanMaker() {
             title: generateSessionTitle(messages),
             createdAt: new Date().toISOString(),
             messages,
-            projectId: lastSavedProjectId
+            projectId: lastSavedProjectId,
+            projectName: currentProjectName, // ✅ FIX: persist project name
           },
         ];
       }
@@ -456,7 +459,6 @@ export default function ProductionPlanMaker() {
 
   const handleConfirmStructure = (msgId: string) => {
     setConfirmedMsgIds((prev) => new Set([...prev, msgId]));
-    // ✅ Also mark all other proposal messages as rejected so their buttons hide too
     setRejectedMsgIds((prev) => {
       const updated = new Set([...prev]);
       messages.forEach((m) => {
@@ -505,6 +507,35 @@ export default function ProductionPlanMaker() {
       content: `I've created the project folder for **${projectName}**. I'm now focused exclusively on this workspace. \n\nPlease provide the project details (Goal, Dates, Resources, etc.) or upload an instruction file to begin building the plan.`,
     };
     setMessages([initialMsg]);
+
+    // ✅ FIX: immediately save the new session with projectName so the sidebar shows it correctly
+    const newSessionId = activeSessionId || Date.now().toString();
+    setSessions((prev) => {
+      const filtered = prev.filter((s) => !deletedSessionsRef.current.has(s.id));
+      const exists = filtered.find((s) => s.id === newSessionId);
+      let updated: ChatSession[];
+      if (exists) {
+        updated = filtered.map((s) =>
+          s.id === newSessionId
+            ? { ...s, projectId, projectName, messages: [initialMsg], title: 'New Chat' }
+            : s
+        );
+      } else {
+        updated = [
+          ...filtered,
+          {
+            id: newSessionId,
+            title: 'New Chat',
+            createdAt: new Date().toISOString(),
+            messages: [initialMsg],
+            projectId,
+            projectName, // ✅ FIX: include projectName from the start
+          },
+        ];
+      }
+      saveSessions(updated);
+      return updated;
+    });
   };
 
   const handleModifyStructure = (msgId: string) => {
@@ -627,7 +658,7 @@ export default function ProductionPlanMaker() {
             tools: TOOLS,
             tool_choice: "auto",
           });
-          break; // success
+          break;
         } catch (err: any) {
           if (retries < maxRetries && (err.message?.includes('fetch') || err.message?.includes('network'))) {
             retries++;
@@ -700,7 +731,6 @@ export default function ProductionPlanMaker() {
               buffer: buffer,
             });
 
-            // Save to unified project storage for the Projects page
             let savedProjectId = '';
             try {
               const spreadsheetData = projectDataToSpreadsheet(projectData);
@@ -802,9 +832,14 @@ export default function ProductionPlanMaker() {
     if (session.projectId) {
       setLastSavedProjectId(session.projectId);
       setIsProjectStarted(true);
-      storage.getProject(session.projectId).then(p => {
+      // ✅ FIX: use stored projectName first, fall back to fetching from storage
+      if (session.projectName) {
+        setCurrentProjectName(session.projectName);
+      } else {
+        storage.getProject(session.projectId).then(p => {
           if (p) setCurrentProjectName(p.name);
-      });
+        });
+      }
     } else {
       setLastSavedProjectId('');
       setIsProjectStarted(false);
@@ -842,18 +877,11 @@ export default function ProductionPlanMaker() {
   };
 
   const handleNuclearReset = async () => {
-    // 1. Clear IndexedDB
     await clearAllProjects();
     await clearAllPlans();
-    
-    // 2. Clear localStorage
     saveSessions([]);
-    
-    // 3. Reset UI state
     setSessions([]);
     startNewSession();
-    
-    // 4. Force reload or just rely on state reset
     alert("Application reset successfully. All data has been wiped.");
   };
 
@@ -1077,7 +1105,6 @@ export default function ProductionPlanMaker() {
                             {children}
                           </code>
                         ),
-                        // ✅ Custom table renderer
                         table: ({ children }: any) => (
                           <div
                             className="overflow-x-auto my-3 rounded-xl border"
@@ -1178,14 +1205,14 @@ export default function ProductionPlanMaker() {
                   )}
                 </div>
 
-                {/* ✅ Confirm / Modify buttons */}
+                {/* Confirm / Modify buttons */}
                 {msg.role === "agent" &&
-                  msg.type !== "file" && // ✅ hide on file messages
+                  msg.type !== "file" &&
                   isTableProposal(msg.content) &&
                   !confirmedMsgIds.has(msg.id) &&
                   !rejectedMsgIds.has(msg.id) &&
                   !isStreaming &&
-                  msg.content.length > 50 && ( // ✅ only show when content is substantial
+                  msg.content.length > 50 && (
                     <div className="flex gap-2 mt-1">
                       <button
                         onClick={() => handleConfirmStructure(msg.id)}
@@ -1208,7 +1235,7 @@ export default function ProductionPlanMaker() {
                     </div>
                   )}
 
-                {/* ✅ Confirmed badge */}
+                {/* Confirmed badge */}
                 {confirmedMsgIds.has(msg.id) && (
                   <div
                     className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg w-fit"

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, AlertTriangle, Database } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Database, ChevronRight, Folder } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export interface Message {
@@ -21,6 +21,7 @@ export interface ChatSession {
     createdAt: string;
     messages: Message[];
     projectId?: string; // Links the chat to the specific project folder
+    projectName?: string; // Human-readable project name
 }
 
 export const STORAGE_KEY = 'productionPlanChatHistory';
@@ -53,6 +54,36 @@ export const generateSessionTitle = (messages: Message[]): string => {
     return 'New Chat';
 };
 
+interface ProjectGroup {
+    projectId: string;
+    projectName: string;
+    sessions: ChatSession[];
+}
+
+function groupSessionsByProject(sessions: ChatSession[]): ProjectGroup[] {
+    const map = new Map<string, ProjectGroup>();
+
+    [...sessions].reverse().forEach(session => {
+        const key = session.projectId ?? '__none__';
+        const name = session.projectName ?? (session.projectId ? session.projectId : 'General');
+
+        if (!map.has(key)) {
+            map.set(key, { projectId: key, projectName: name, sessions: [] });
+        }
+        map.get(key)!.sessions.push(session);
+    });
+
+    // Sort: named projects first, then General
+    const groups = Array.from(map.values());
+    groups.sort((a, b) => {
+        if (a.projectId === '__none__') return 1;
+        if (b.projectId === '__none__') return -1;
+        return a.projectName.localeCompare(b.projectName);
+    });
+
+    return groups;
+}
+
 interface ChatHistorySidebarProps {
     sessions: ChatSession[];
     activeSessionId: string;
@@ -75,6 +106,29 @@ export default function ChatHistorySidebar({
     onDeleteAllData,
 }: ChatHistorySidebarProps) {
     const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+    const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(['__none__']));
+
+    const groups = groupSessionsByProject(sessions);
+
+    // Auto-open the group that contains the active session
+    const activeGroup = sessions.find(s => s.id === activeSessionId);
+    const activeGroupKey = activeGroup?.projectId ?? '__none__';
+
+    const toggleGroup = (projectId: string) => {
+        setOpenGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(projectId)) {
+                next.delete(projectId);
+            } else {
+                next.add(projectId);
+            }
+            return next;
+        });
+    };
+
+    const isGroupOpen = (projectId: string) =>
+        openGroups.has(projectId) || projectId === activeGroupKey;
+
     return (
         <div
             className={`fixed inset-y-0 left-0 flex flex-col z-[60] transition-transform duration-300 ${showSidebar ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none"}`}
@@ -85,7 +139,7 @@ export default function ChatHistorySidebar({
             >
                 {/* Sidebar Header */}
                 <div className="p-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid #046241" }}>
-                    <span className="font-semibold text-white text-sm">Chat History</span>
+                    <span className="font-semibold text-white text-sm">Project Chat History</span>
                     <div className="flex items-center gap-2">
                         {sessions.length > 0 && (
                             <button
@@ -107,40 +161,98 @@ export default function ChatHistorySidebar({
                     </div>
                 </div>
 
-                {/* Session List */}
-                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                {/* Project Groups */}
+                <div className="flex-1 overflow-y-auto py-2">
                     {sessions.length === 0 && (
                         <p className="text-xs text-center p-4" style={{ color: "#FFC370", opacity: 0.6 }}>No history yet</p>
                     )}
-                    {[...sessions].reverse().map(session => (
-                        <div
-                            key={session.id}
-                            className="flex items-center gap-2 p-3 rounded-xl cursor-pointer group transition-opacity hover:opacity-90"
-                            style={{ backgroundColor: session.id === activeSessionId ? "#046241" : "rgba(255,255,255,0.05)" }}
-                        >
-                            <div
-                                className="flex-1 min-w-0"
-                                onClick={() => onLoadSession(session)}
-                            >
-                                <p className="text-xs font-medium truncate text-white">{session.title}</p>
-                                <p className="text-xs mt-0.5" style={{ color: "#FFB347", opacity: 0.8 }}>
-                                    {new Date(session.createdAt).toLocaleDateString()}
-                                </p>
+
+                    {groups.map((group, idx) => {
+                        const isOpen = isGroupOpen(group.projectId);
+                        return (
+                            <div key={group.projectId}>
+                                {/* Divider between groups */}
+                                {idx > 0 && (
+                                    <div className="mx-3 my-1" style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)' }} />
+                                )}
+
+                                {/* Project folder header */}
+                                <button
+                                    type="button"
+                                    onClick={() => toggleGroup(group.projectId)}
+                                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 transition-colors text-left"
+                                >
+                                    <ChevronRight
+                                        className="w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200"
+                                        style={{
+                                            color: 'rgba(255,255,255,0.35)',
+                                            transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)'
+                                        }}
+                                    />
+                                    <Folder className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#FFC370' }} />
+                                    <span className="flex-1 text-xs font-medium text-white/75 truncate">
+                                        {group.projectName}
+                                    </span>
+                                    <span
+                                        className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.35)' }}
+                                    >
+                                        {group.sessions.length}
+                                    </span>
+                                </button>
+
+                                {/* Chat list under this project */}
+                                <AnimatePresence initial={false}>
+                                    {isOpen && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.2, ease: 'easeInOut' }}
+                                            style={{ overflow: 'hidden' }}
+                                        >
+                                            <div className="pb-1">
+                                                {group.sessions.map(session => (
+                                                    <div
+                                                        key={session.id}
+                                                        className="flex items-center gap-2 mx-2 pl-6 pr-2 py-2 rounded-xl cursor-pointer group transition-opacity hover:opacity-90"
+                                                        style={{
+                                                            backgroundColor: session.id === activeSessionId
+                                                                ? "#046241"
+                                                                : "rgba(255,255,255,0.04)"
+                                                        }}
+                                                    >
+                                                        <div
+                                                            className="flex-1 min-w-0"
+                                                            onClick={() => onLoadSession(session)}
+                                                        >
+                                                            <p className="text-xs font-medium truncate text-white/65">
+                                                                {session.title}
+                                                            </p>
+                                                            <p className="text-[10px] mt-0.5" style={{ color: "#6fa882" }}>
+                                                                {new Date(session.createdAt).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onDeleteSession(session.id);
+                                                            }}
+                                                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full flex-shrink-0"
+                                                            style={{ color: "#FFC370" }}
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    console.log("delete clicked", session.id);
-                                    onDeleteSession(session.id);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full"
-                                style={{ color: "#FFC370" }}
-                            >
-                                <Trash2 className="w-3 h-3" />
-                            </button>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {/* Delete All Data Button */}
