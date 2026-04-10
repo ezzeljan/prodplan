@@ -32,6 +32,10 @@ public class UserService {
         return userRepository.findByEmailAndPin(email, pin);
     }
 
+    public java.util.List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
     private String generateUniquePin() {
         String pin;
         do {

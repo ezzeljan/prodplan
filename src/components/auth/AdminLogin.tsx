@@ -34,41 +34,51 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  
+
   const admins = users.filter(u => u.role === 'admin');
-  
-  const handleLogin = (e: React.FormEvent) => {
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (!email.trim() || !password.trim()) {
-      setError('Please enter your email and password.');
+      setError('Please enter your email and PIN.');
       return;
     }
 
     setIsSubmitting(true);
 
-    // Simulate network request
-    setTimeout(() => {
-      const userToLogin = admins.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+    try {
+      const response = await fetch('http://localhost:8080/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, pin: password })
+      });
 
-      if (!userToLogin) {
-        // Fallback for demo if the email doesn't exactly match
-        const defaultAdmin = admins[0];
-        if (email.includes('admin') || email.includes('manager')) {
-          switchUser(defaultAdmin.id);
-          login();
-          navigate('/');
-        } else {
-          setError('Invalid admin credentials.');
-          setIsSubmitting(false);
-        }
-      } else {
-        switchUser(userToLogin.id);
-        login();
-        navigate('/');
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Invalid credentials.');
+        setIsSubmitting(false);
+        return;
       }
-    }, 800);
+
+      // Check if user is actually an admin
+      if (data.user.role !== 'ADMIN') {
+        setError('Access denied. You do not have administrator privileges.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Sync with traditional frontend session
+      sessionStorage.setItem('admin-session', JSON.stringify({ email, pin: password }));
+      switchUser(data.user.id.toString());
+      login();
+      navigate('/');
+    } catch (err) {
+      setError('Could not connect to the server.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -116,7 +126,7 @@ export default function AdminLogin() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-zinc-700 pl-1">Password</label>
+            <label className="text-xs font-semibold text-zinc-700 pl-1">PIN</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
               <input
@@ -124,7 +134,7 @@ export default function AdminLogin() {
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
                 className="w-full pl-10 pr-4 py-2.5 text-sm bg-zinc-50 border border-zinc-300 rounded-xl focus:outline-none focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/20 text-zinc-900 placeholder:text-zinc-400 transition-all font-medium"
-                placeholder="Enter your password"
+                placeholder="Enter your 6-digit PIN"
               />
             </div>
           </div>

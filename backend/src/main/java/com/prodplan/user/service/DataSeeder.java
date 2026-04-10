@@ -5,6 +5,7 @@ import com.prodplan.user.model.User;
 import com.prodplan.user.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
+import java.util.Optional;
 
 @Component
 public class DataSeeder {
@@ -19,10 +20,30 @@ public class DataSeeder {
 
     @PostConstruct
     public void seedAdmin() {
-        String adminEmail = "alexacarpentero9@gmail.com";
-        if (userRepository.findByEmail(adminEmail).isEmpty()) {
-            User admin = userService.createUser("System Admin", adminEmail, Role.ADMIN);
-            System.out.println("Seeded Admin user. Email: " + adminEmail + ", PIN: " + admin.getPin());
+        String adminEmail = "lifewood@ph.com";
+        String targetPin = "lifewood@";
+
+        // 1. Resolve PIN collisions: If another user already has '123456', change their PIN first
+        userRepository.findByPin(targetPin).ifPresent(otherUser -> {
+            if (!otherUser.getEmail().equals(adminEmail)) {
+                otherUser.setPin("000000"); // Temporarily move the PIN
+                userRepository.save(otherUser);
+            }
+        });
+
+        // 2. Seed or Update the new Admin
+        java.util.Optional<com.prodplan.user.model.User> existing = userRepository.findByEmail(adminEmail);
+        
+        if (existing.isEmpty()) {
+            com.prodplan.user.model.User admin = new com.prodplan.user.model.User("System Admin", adminEmail, Role.ADMIN, targetPin);
+            userRepository.save(admin);
+            System.out.println("Seeded Admin user. Email: " + adminEmail + ", PIN: " + targetPin);
+        } else {
+            com.prodplan.user.model.User admin = existing.get();
+            admin.setPin(targetPin);
+            admin.setRole(Role.ADMIN);
+            userRepository.save(admin);
+            System.out.println("Reset Admin user PIN. Email: " + adminEmail + ", PIN: " + targetPin);
         }
     }
 }

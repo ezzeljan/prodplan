@@ -12,6 +12,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api")
+@CrossOrigin(origins = "*")
 public class UserController {
 
     private final UserService userService;
@@ -60,12 +61,22 @@ public class UserController {
                             "id", createdUser.getId(),
                             "name", createdUser.getName(),
                             "email", createdUser.getEmail(),
-                            "role", createdUser.getRole()
+                            "role", createdUser.getRole(),
+                            "pin", createdUser.getPin() // Return the PIN so admin can see it
                     )
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @GetMapping("/users")
+    public ResponseEntity<?> listUsers(@RequestParam String adminEmail, @RequestParam String adminPin) {
+        Optional<User> adminOpt = userService.authenticate(adminEmail, adminPin);
+        if (adminOpt.isEmpty() || adminOpt.get().getRole() != Role.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only Admins can view users"));
+        }
+        return ResponseEntity.ok(userService.getAllUsers());
     }
 
     public record LoginRequest(String email, String pin) {}
