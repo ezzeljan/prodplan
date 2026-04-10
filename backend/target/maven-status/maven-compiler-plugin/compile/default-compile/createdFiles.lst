@@ -1,0 +1,9 @@
+com\prodplan\user\model\Role.class
+com\prodplan\user\model\User.class
+com\prodplan\user\controller\UserController$CreateUserRequest.class
+com\prodplan\user\service\UserService.class
+com\prodplan\user\controller\UserController$LoginRequest.class
+com\prodplan\user\repository\UserRepository.class
+com\prodplan\user\service\DataSeeder.class
+com\prodplan\user\controller\UserController.class
+com\prodplan\user\UserApplication.class
