@@ -112,13 +112,33 @@ export default function AdminDashboard() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
+    const [createdPin, setCreatedPin] = useState<string | null>(null);
     const [addForm, setAddForm] = useState({ name: '', email: '', pin: '', confirmPin: '' });
     const [addError, setAddError] = useState('');
     const [addSubmitting, setAddSubmitting] = useState(false);
 
     const loadOperators = useCallback(async () => {
-        const ops = await storage.getAllOperators();
-        setOperators(ops);
+        const adminSession = sessionStorage.getItem('admin-session');
+        if (!adminSession) return;
+        const { email, pin } = JSON.parse(adminSession);
+
+        try {
+            const response = await fetch(`http://localhost:8080/api/users?adminEmail=${email}&adminPin=${pin}`);
+            if (response.ok) {
+                const data = await response.json();
+                // Map backend User to local Operator type
+                const ops: Operator[] = data.map((u: any) => ({
+                    id: u.id.toString(),
+                    name: u.name,
+                    email: u.email,
+                    pinHash: '', // We use real backend PINs now
+                    createdAt: new Date().toISOString()
+                }));
+                setOperators(ops);
+            }
+        } catch (err) {
+            console.error('Failed to load operators', err);
+        }
     }, []);
 
     useEffect(() => { loadOperators(); }, [loadOperators]);
@@ -132,50 +152,48 @@ export default function AdminDashboard() {
     };
 
     const handleAddOperator = async () => {
-        const { name, email, pin, confirmPin } = addForm;
-        if (!name.trim() || !email.trim() || !pin.trim()) {
+        const { name, email } = addForm;
+        if (!name.trim() || !email.trim()) {
             setAddError('All fields are required.');
             return;
         }
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email.trim())) {
-            setAddError('Please enter a valid email address.');
+
+        const adminSession = sessionStorage.getItem('admin-session');
+        if (!adminSession) {
+            setAddError('Your session has expired. Please log in again.');
             return;
         }
-        if (pin !== confirmPin) {
-            setAddError('PINs do not match.');
-            return;
-        }
-        if (pin.length < 4) {
-            setAddError('PIN must be at least 4 characters.');
-            return;
-        }
+        const admin = JSON.parse(adminSession);
 
         setAddSubmitting(true);
         setAddError('');
         try {
-            const existing = await storage.getOperatorByEmail(email.toLowerCase().trim());
-            if (existing) {
-                setAddError('An operator with that email already exists.');
-                setAddSubmitting(false);
+            const response = await fetch('http://localhost:8080/api/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name.trim(),
+                    email: email.toLowerCase().trim(),
+                    role: 'OPERATOR',
+                    adminEmail: admin.email,
+                    adminPin: admin.pin
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setAddError(data.error || 'Failed to save operator.');
                 return;
             }
 
-            const pinHash = await hashPin(pin);
-            const op: Operator = {
-                id: crypto.randomUUID(),
-                name: name.trim(),
-                email: email.toLowerCase().trim(),
-                pinHash,
-                createdAt: new Date().toISOString(),
-            };
-            await storage.saveOperator(op);
+            // Success!
+            setCreatedPin(data.user.pin); // Store the generated PIN to show to the admin
             await loadOperators();
-            setShowAddModal(false);
             setAddForm({ name: '', email: '', pin: '', confirmPin: '' });
         } catch (err) {
             console.error(err);
-            setAddError('Failed to save operator.');
+            setAddError('Could not connect to the server.');
         } finally {
             setAddSubmitting(false);
         }
@@ -260,47 +278,47 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                    {/* Project Filter */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setFilterOpen(!filterOpen)}
-                            className="glass-card flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/10 transition-colors"
-                        >
-                            <Folder className="w-4 h-4 text-[var(--accent-secondary)]" />
-                            <span className="text-sm font-medium text-[var(--text-primary)]">{selectedLabel}</span>
-                            <ChevronDown className={`w-4 h-4 text-[var(--text-muted)] transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-                        </button>
+                        {/* Project Filter */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setFilterOpen(!filterOpen)}
+                                className="glass-card flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/10 transition-colors"
+                            >
+                                <Folder className="w-4 h-4 text-[var(--accent-secondary)]" />
+                                <span className="text-sm font-medium text-[var(--text-primary)]">{selectedLabel}</span>
+                                <ChevronDown className={`w-4 h-4 text-[var(--text-muted)] transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+                            </button>
 
-                        <AnimatePresence>
-                            {filterOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: -8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -8 }}
-                                    className="absolute right-0 mt-2 w-64 glass-card py-1.5 z-50 overflow-hidden"
-                                >
-                                    <button
-                                        onClick={() => { setActiveProjectId(null); setFilterOpen(false); }}
-                                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${!activeProjectId ? 'bg-[var(--accent-primary)]/20 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-white/5'}`}
+                            <AnimatePresence>
+                                {filterOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -8 }}
+                                        className="absolute right-0 mt-2 w-64 glass-card py-1.5 z-50 overflow-hidden"
                                     >
-                                        <BarChart3 className="w-4 h-4" />
-                                        All Projects
-                                    </button>
-                                    {projects.map(p => (
                                         <button
-                                            key={p.id}
-                                            onClick={() => { setActiveProjectId(p.id); setFilterOpen(false); }}
-                                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${activeProjectId === p.id ? 'bg-[var(--accent-primary)]/20 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-white/5'}`}
+                                            onClick={() => { setActiveProjectId(null); setFilterOpen(false); }}
+                                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${!activeProjectId ? 'bg-[var(--accent-primary)]/20 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-white/5'}`}
                                         >
-                                            <Folder className="w-4 h-4" />
-                                            {p.name}
+                                            <BarChart3 className="w-4 h-4" />
+                                            All Projects
                                         </button>
-                                    ))}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                    <UserSwitcher />
+                                        {projects.map(p => (
+                                            <button
+                                                key={p.id}
+                                                onClick={() => { setActiveProjectId(p.id); setFilterOpen(false); }}
+                                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${activeProjectId === p.id ? 'bg-[var(--accent-primary)]/20 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-white/5'}`}
+                                            >
+                                                <Folder className="w-4 h-4" />
+                                                {p.name}
+                                            </button>
+                                        ))}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                        <UserSwitcher />
                     </div>
                 </div>
 
@@ -586,65 +604,67 @@ export default function AdminDashboard() {
                                 )}
 
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">Name</label>
-                                        <input
-                                            type="text"
-                                            value={addForm.name}
-                                            onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
-                                            placeholder="Full name"
-                                            className="glass-input w-full px-3 py-2.5 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">Email</label>
-                                        <input
-                                            type="email"
-                                            value={addForm.email}
-                                            onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))}
-                                            placeholder="operator@company.com"
-                                            className="glass-input w-full px-3 py-2.5 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">PIN</label>
-                                        <input
-                                            type="password"
-                                            value={addForm.pin}
-                                            onChange={e => setAddForm(f => ({ ...f, pin: e.target.value }))}
-                                            placeholder="At least 4 characters"
-                                            className="glass-input w-full px-3 py-2.5 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">Confirm PIN</label>
-                                        <input
-                                            type="password"
-                                            value={addForm.confirmPin}
-                                            onChange={e => setAddForm(f => ({ ...f, confirmPin: e.target.value }))}
-                                            placeholder="Re-enter PIN"
-                                            className="glass-input w-full px-3 py-2.5 text-sm"
-                                        />
-                                    </div>
+                                    {createdPin ? (
+                                        <div className="bg-[var(--metric-green)]/10 border border-[var(--metric-green)]/20 rounded-2xl p-6 text-center">
+                                            <p className="text-xs text-[var(--text-muted)] mb-2 uppercase tracking-widest font-bold">New Operator PIN</p>
+                                            <p className="text-4xl font-black text-[var(--metric-green)] tracking-[0.2em]">{createdPin}</p>
+                                            <p className="text-xs text-[var(--text-muted)] mt-4 px-4">Important: Write this down or share it with the operator now. This is the only time it will be shown.</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div>
+                                                <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={addForm.name}
+                                                    onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
+                                                    placeholder="Full name"
+                                                    className="glass-input w-full px-3 py-2.5 text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">Email</label>
+                                                <input
+                                                    type="email"
+                                                    value={addForm.email}
+                                                    onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))}
+                                                    placeholder="operator@company.com"
+                                                    className="glass-input w-full px-3 py-2.5 text-sm"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 <div className="flex justify-end gap-2 mt-6">
-                                    <button
-                                        onClick={() => { setShowAddModal(false); setAddError(''); }}
-                                        className="glass-card px-4 py-2 text-sm font-medium hover:bg-white/10 transition-colors cursor-pointer"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleAddOperator}
-                                        disabled={addSubmitting}
-                                        className="px-4 py-2 rounded-xl text-sm font-semibold text-white
-                                            bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)]
-                                            hover:shadow-lg hover:shadow-[var(--accent-glow)] transition-all
-                                            disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                    >
-                                        {addSubmitting ? 'Saving...' : 'Add Operator'}
-                                    </button>
+                                    {createdPin ? (
+                                        <button
+                                            onClick={() => { setShowAddModal(false); setCreatedPin(null); }}
+                                            className="w-full px-4 py-3 rounded-xl text-sm font-bold text-white
+                                                bg-[var(--accent-primary)] hover:bg-[var(--accent-secondary)] transition-all cursor-pointer"
+                                        >
+                                            Done
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => { setShowAddModal(false); setAddError(''); }}
+                                                className="glass-card px-4 py-2 text-sm font-medium hover:bg-white/10 transition-colors cursor-pointer"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={handleAddOperator}
+                                                disabled={addSubmitting}
+                                                className="px-4 py-2 rounded-xl text-sm font-semibold text-white
+                                                    bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)]
+                                                    hover:shadow-lg hover:shadow-[var(--accent-glow)] transition-all
+                                                    disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            >
+                                                {addSubmitting ? 'Saving...' : 'Add Operator'}
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </motion.div>
                         </div>

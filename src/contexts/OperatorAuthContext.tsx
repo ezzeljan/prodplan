@@ -46,20 +46,30 @@ export const OperatorAuthProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const login = useCallback(async (email: string, pin: string) => {
-        const op: Operator | undefined = await storage.getOperatorByEmail(email.toLowerCase().trim());
-        if (!op) {
-            return { success: false, error: 'No account found with that email.' };
-        }
+        try {
+            const response = await fetch('http://localhost:8080/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, pin })
+            });
 
-        const pinDigest = await hashPin(pin);
-        if (pinDigest !== op.pinHash) {
-            return { success: false, error: 'Incorrect PIN.' };
-        }
+            const data = await response.json();
 
-        const session: OperatorSession = { id: op.id, name: op.name, email: op.email };
-        setOperator(session);
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-        return { success: true };
+            if (!response.ok) {
+                return { success: false, error: data.error || 'Login failed' };
+            }
+
+            const session: OperatorSession = {
+                id: data.user.id.toString(),
+                name: data.user.name,
+                email: data.user.email
+            };
+            setOperator(session);
+            sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: 'Could not connect to the server.' };
+        }
     }, []);
 
     const logout = useCallback(() => {
