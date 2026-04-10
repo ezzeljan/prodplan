@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOperatorAuth } from '../../contexts/OperatorAuthContext';
 import { Mail, KeyRound, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -6,10 +7,31 @@ import logo from '../../assets/lifewood-logo.png';
 
 export default function OperatorLogin() {
     const { login } = useOperatorAuth();
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.altKey) {
+                if (e.key.toLowerCase() === 'a') {
+                    e.preventDefault();
+                    navigate('/admin');
+                } else if (e.key.toLowerCase() === 'm') {
+                    e.preventDefault();
+                    navigate('/manager');
+                } else if (e.key.toLowerCase() === 'o') {
+                    e.preventDefault();
+                    navigate('/portal');
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,7 +51,7 @@ export default function OperatorLogin() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center gradient-bg px-4">
+        <div className="min-h-screen flex items-center justify-center bg-white px-4 font-['Manrope',sans-serif]">
             <motion.div
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -40,55 +62,55 @@ export default function OperatorLogin() {
                     <img
                         src={logo}
                         alt="Lifewood"
-                        className="h-10 w-auto object-contain brightness-0 invert mb-6"
+                        className="h-10 w-auto object-contain mb-6"
                     />
-                    <h1 className="text-xl font-bold text-[var(--text-primary)]">Operator Portal</h1>
-                    <p className="text-sm text-[var(--text-secondary)] mt-1">
+                    <h1 className="text-xl font-bold text-zinc-900">Operator Portal</h1>
+                    <p className="text-sm text-zinc-500 mt-1">
                         Sign in to view your assigned output
                     </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="glass-card p-6 space-y-5">
+                <form onSubmit={handleSubmit} className="bg-white border border-zinc-200 shadow-xl rounded-3xl p-6 space-y-5">
                     {error && (
                         <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
-                            className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[var(--metric-red)]/10 border border-[var(--metric-red)]/20"
+                            className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200"
                         >
-                            <AlertCircle className="w-4 h-4 text-[var(--metric-red)] shrink-0" />
-                            <span className="text-xs text-[var(--metric-red)]">{error}</span>
+                            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                            <span className="text-xs text-red-600 font-medium">{error}</span>
                         </motion.div>
                     )}
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-[var(--text-secondary)] pl-1">
+                        <label className="text-xs font-semibold text-zinc-700 pl-1">
                             Email
                         </label>
                         <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                             <input
                                 type="email"
                                 value={email}
                                 onChange={e => { setEmail(e.target.value); setError(''); }}
                                 placeholder="you@company.com"
-                                className="glass-input w-full pl-10 pr-4 py-2.5 text-sm placeholder:text-[var(--text-muted)]"
+                                className="w-full pl-10 pr-4 py-2.5 text-sm bg-zinc-50 border border-zinc-300 rounded-xl focus:outline-none focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/20 text-zinc-900 placeholder:text-zinc-400 transition-all font-medium"
                                 autoComplete="email"
                             />
                         </div>
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-[var(--text-secondary)] pl-1">
+                        <label className="text-xs font-semibold text-zinc-700 pl-1">
                             PIN
                         </label>
                         <div className="relative">
-                            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+                            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                             <input
                                 type="password"
                                 value={pin}
                                 onChange={e => { setPin(e.target.value); setError(''); }}
                                 placeholder="Enter your PIN"
-                                className="glass-input w-full pl-10 pr-4 py-2.5 text-sm placeholder:text-[var(--text-muted)]"
+                                className="w-full pl-10 pr-4 py-2.5 text-sm bg-zinc-50 border border-zinc-300 rounded-xl focus:outline-none focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/20 text-zinc-900 placeholder:text-zinc-400 transition-all font-medium"
                                 autoComplete="current-password"
                             />
                         </div>
@@ -97,10 +119,10 @@ export default function OperatorLogin() {
                     <button
                         type="submit"
                         disabled={submitting}
-                        className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all
-                            bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)]
-                            hover:shadow-lg hover:shadow-[var(--accent-glow)]
-                            disabled:opacity-50 disabled:cursor-not-allowed
+                        className="w-full mt-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all
+                            bg-gradient-to-r from-[var(--accent-primary)] to-[#087851]
+                            hover:shadow-lg hover:shadow-[var(--accent-primary)]/30 hover:-translate-y-0.5
+                            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none
                             flex items-center justify-center gap-2 cursor-pointer"
                     >
                         {submitting ? (
@@ -114,7 +136,7 @@ export default function OperatorLogin() {
                     </button>
                 </form>
 
-                <p className="text-center text-[10px] text-[var(--text-muted)] mt-6">
+                <p className="text-center text-xs text-zinc-500 mt-6 font-medium">
                     Contact your admin if you don't have an account.
                 </p>
             </motion.div>

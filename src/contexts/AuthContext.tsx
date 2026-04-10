@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 
 interface AuthContextType {
     isSignedIn: boolean;
@@ -10,11 +10,25 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+    const [isSignedIn, setIsSignedIn] = useState<boolean>(() => {
+        return localStorage.getItem('prodplan-auth') === 'true';
+    });
+
+    const login = () => {
+        setIsSignedIn(true);
+        localStorage.setItem('prodplan-auth', 'true');
+    };
+
+    const logout = () => {
+        setIsSignedIn(false);
+        localStorage.removeItem('prodplan-auth');
+    };
+
     const value: AuthContextType = {
-        isSignedIn: false,
+        isSignedIn,
         googleToken: null,
-        login: () => {},
-        logout: () => {},
+        login,
+        logout,
     };
 
     return (

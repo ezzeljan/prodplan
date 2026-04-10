@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, BarChart3, FolderOpen } from "lucide-react";
+import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, BarChart3, FolderOpen, LogOut } from "lucide-react";
 import { useAISpreadsheet } from "../../contexts/AISpreadsheetContext";
+import { useAuth } from "../../contexts/AuthContext";
 import logo from "../../assets/lifewood-logo.png";
 import icon from "../../assets/icon.png";
 
@@ -15,7 +16,9 @@ const navWithIcons = [
 const Navbar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { hasNewData } = useAISpreadsheet();
+  const { logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -25,6 +28,11 @@ const Navbar = () => {
     });
     window.dispatchEvent(event);
   }, [isExpanded]);
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false);
+    logout();
+  };
 
   return (
     <>
@@ -145,6 +153,20 @@ const Navbar = () => {
               Chat History
             </span>
           </button>
+
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className={`flex items-center rounded-full transition-colors text-[var(--metric-red)]/80 hover:bg-[var(--metric-red)]/10 hover:text-[var(--metric-red)] ${isExpanded
+              ? "justify-start gap-4 px-3 py-3 w-full"
+              : "justify-center w-12 h-12 mx-auto"
+              }`}
+            title={!isExpanded ? "Sign Out" : undefined}
+          >
+            <div className="flex-shrink-0"><LogOut className="w-5 h-5" /></div>
+            <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
+              Sign Out
+            </span>
+          </button>
         </div>
       </nav>
 
@@ -173,7 +195,7 @@ const Navbar = () => {
             className="absolute inset-0 bg-[#133020]/40 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute right-0 top-0 bottom-0 w-[280px] bg-[#133020] shadow-2xl flex flex-col border-l border-white/10">
+          <div className="absolute right-0 top-0 bottom-0 w-[280px] bg-[#133020] shadow-2xl flex flex-col border-l border-white/10 overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <img
                 src={logo}
@@ -208,6 +230,47 @@ const Navbar = () => {
                   </Link>
                 );
               })}
+            </div>
+            
+            <div className="mt-auto border-t border-white/10 p-4">
+              <button
+                onClick={() => {
+                  setMobileOpen(false);
+                  setShowLogoutConfirm(true);
+                }}
+                className="flex items-center gap-3 px-4 py-3 w-full rounded-full text-sm font-medium transition-colors text-[var(--metric-red)]/80 hover:bg-[var(--metric-red)]/10 hover:text-[var(--metric-red)]"
+              >
+                <LogOut className="w-5 h-5" />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-[#0d1f17]/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setShowLogoutConfirm(false)}
+          />
+          <div className="relative bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl transition-all duration-300 scale-100 opacity-100 border border-zinc-100">
+            <h3 className="text-xl font-bold text-zinc-900 mb-2">Sign Out</h3>
+            <p className="text-sm text-zinc-500 mb-7">Are you sure you want to sign out of the Admin portal?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors shadow-sm"
+              >
+                Sign Out
+              </button>
             </div>
           </div>
         </div>
