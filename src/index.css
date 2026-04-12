@@ -102,6 +102,7 @@ body {
     border: 1px solid var(--glass-border);
     border-radius: 16px;
     box-shadow: var(--glass-shadow);
+    transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .glass-card-hover {
@@ -188,8 +189,9 @@ body {
 
 /* Animated gradient background */
 .gradient-bg {
-    background: var(--gradient-hero);
+    background-color: var(--surface-primary);
     position: relative;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .gradient-bg::before {
@@ -198,6 +200,7 @@ body {
     inset: 0;
     background: radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-glow), transparent);
     pointer-events: none;
+    transition: opacity 0.3s ease;
 }
 
 /* Scrollbar styling */

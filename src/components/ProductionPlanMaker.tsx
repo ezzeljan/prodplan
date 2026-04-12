@@ -12,8 +12,6 @@ import {
   Send,
   X,
   FileText,
-  Moon,
-  Sun,
   Table,
 } from "lucide-react";
 import OpenAI from "openai";
@@ -322,14 +320,12 @@ export default function ProductionPlanMaker() {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  }, [isDark]);
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, { attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1002,20 +998,6 @@ export default function ProductionPlanMaker() {
                 title="New Chat"
               >
                 <Plus className="w-[18px] h-[18px]" />
-              </button>
-              <button
-                onClick={() => setIsDark(!isDark)}
-                className={`p-1.5 rounded-full transition-colors ${isDark
-                  ? "hover:bg-zinc-700 text-gray-300"
-                  : "hover:bg-white text-[#4A5A66] hover:shadow-sm"
-                  }`}
-                title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-              >
-                {isDark ? (
-                  <Sun className="w-[18px] h-[18px]" />
-                ) : (
-                  <Moon className="w-[18px] h-[18px]" />
-                )}
               </button>
             </div>
 

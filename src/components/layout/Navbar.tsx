@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, BarChart3, FolderOpen, LogOut } from "lucide-react";
+import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, BarChart3, FolderOpen, LogOut, Sun, Moon } from "lucide-react";
 import { useAISpreadsheet } from "../../contexts/AISpreadsheetContext";
 import { useAuth } from "../../contexts/AuthContext";
 import logo from "../../assets/lifewood-logo.png";
@@ -17,6 +17,7 @@ const Navbar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isDark, setIsDark] = useState(() => localStorage.getItem("theme") === "dark");
   const { hasNewData } = useAISpreadsheet();
   const { logout } = useAuth();
   const location = useLocation();
@@ -28,6 +29,26 @@ const Navbar = () => {
     });
     window.dispatchEvent(event);
   }, [isExpanded]);
+
+  useEffect(() => {
+    if (localStorage.getItem("theme") === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    if (newIsDark) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  };
 
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
@@ -67,11 +88,13 @@ const Navbar = () => {
               }
             }}
           >
-            <img
-              src={logo}
-              alt="Lifewood Navigation"
-              className="h-8 w-auto object-contain brightness-0 invert min-w-[100px] hover:opacity-80 transition-opacity"
-            />
+            <div className="px-3 py-2 rounded-2xl bg-[#F9F7F7] shadow-lg shadow-black/20">
+              <img
+                src={logo}
+                alt="Lifewood Navigation"
+                className="h-8 w-auto object-contain min-w-[100px] hover:opacity-80 transition-opacity"
+              />
+            </div>
           </Link>
           {isExpanded && (
             <button
@@ -151,6 +174,22 @@ const Navbar = () => {
             <div className="flex-shrink-0"><History className="w-5 h-5" /></div>
             <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
               Chat History
+            </span>
+          </button>
+
+          <button
+            onClick={toggleTheme}
+            className={`flex items-center rounded-full transition-colors text-white/70 hover:bg-white/10 hover:text-white ${isExpanded
+              ? "justify-start gap-4 px-3 py-3 w-full"
+              : "justify-center w-12 h-12 mx-auto"
+              }`}
+            title={!isExpanded ? (isDark ? "Light Mode" : "Dark Mode") : undefined}
+          >
+            <div className="flex-shrink-0">
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </div>
+            <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
+              {isDark ? "Light Mode" : "Dark Mode"}
             </span>
           </button>
 

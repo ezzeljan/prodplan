@@ -12,6 +12,8 @@ import {
     ArrowUpDown,
     LayoutGrid,
     Clock,
+    Archive,
+    RotateCcw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { storage } from '../utils/storageProvider';
@@ -63,6 +65,26 @@ export default function ProjectsPage() {
         }
     };
 
+    const handleArchive = async (id: string) => {
+        try {
+            await storage.updateProject(id, { status: 'archived' });
+            setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'archived' } : p));
+            setMenuOpen(null);
+        } catch (err) {
+            console.error('Failed to archive project:', err);
+        }
+    };
+
+    const handleUnarchive = async (id: string) => {
+        try {
+            await storage.updateProject(id, { status: 'active' });
+            setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'active' } : p));
+            setMenuOpen(null);
+        } catch (err) {
+            console.error('Failed to unarchive project:', err);
+        }
+    };
+
     const filtered = useMemo(() => {
         let list = [...projects];
 
@@ -100,7 +122,7 @@ export default function ProjectsPage() {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'active': return { text: 'text-emerald-400', bg: 'bg-emerald-400/10', border: 'border-emerald-400/20' };
+            case 'active': return { text: 'text-[#046241]', bg: 'bg-[#046241]/10', border: 'border-[#046241]/20' };
             case 'completed': return { text: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-400/20' };
             case 'archived': return { text: 'text-gray-400', bg: 'bg-gray-400/10', border: 'border-gray-400/20' };
             default: return { text: 'text-gray-400', bg: 'bg-gray-400/10', border: 'border-gray-400/20' };
@@ -122,7 +144,7 @@ export default function ProjectsPage() {
     }), [projects]);
 
     return (
-        <div className="h-full overflow-y-auto custom-scrollbar gradient-bg">
+        <div className="h-full overflow-y-auto custom-scrollbar gradient-bg transition-colors duration-300">
             <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
                 {/* Header */}
@@ -277,6 +299,23 @@ export default function ProjectsPage() {
                                                         className="absolute right-0 mt-1 w-40 glass-card py-1 z-50"
                                                         onClick={e => e.stopPropagation()}
                                                     >
+                                                        {project.status === 'archived' ? (
+                                                            <button
+                                                                onClick={() => handleUnarchive(project.id)}
+                                                                className="w-full text-left px-3 py-2 text-sm text-[var(--accent-secondary)] hover:bg-white/10 transition-colors flex items-center gap-2"
+                                                            >
+                                                                <RotateCcw className="w-3.5 h-3.5" />
+                                                                Unarchive
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleArchive(project.id)}
+                                                                className="w-full text-left px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-white/10 transition-colors flex items-center gap-2"
+                                                            >
+                                                                <Archive className="w-3.5 h-3.5" />
+                                                                Add to Archive
+                                                            </button>
+                                                        )}
                                                         <button
                                                             onClick={() => setDeleteConfirm(project.id)}
                                                             className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"
