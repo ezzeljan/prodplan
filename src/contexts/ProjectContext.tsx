@@ -134,7 +134,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
             let all;
             if (currentUser.role === UserRole.ADMIN) {
                 all = await storage.getAllProjects();
-            } else if (currentUser.role === UserRole.PROJECT_MANAGER) {
+            } else if (currentUser.role === UserRole.TEAM_LEAD) {
                 all = await storage.getAllProjects(currentUser.id);
             } else {
                 all = await storage.getAllProjects(undefined, currentUser.id);

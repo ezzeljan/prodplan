@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUser } from '../../contexts/UserContext';
+import { Role } from '../../types/auth';
 import { motion } from 'motion/react';
 import { Users, ArrowRight, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -18,9 +19,9 @@ export default function TeamLeadLogin() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const teamLeads = users.filter(u => u.role === 'teamlead');
+  const teamLeads = users.filter(u => u.role.toUpperCase() === Role.TEAM_LEAD);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -31,18 +32,35 @@ export default function TeamLeadLogin() {
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const userToLogin = teamLeads.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+    try {
+      const response = await fetch('http://localhost:8080/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.toLowerCase().trim(), pin: password })
+      });
+      const data = await response.json();
 
-      if (userToLogin) {
-        login({ email: userToLogin.email, pin: password });
-        switchUser(userToLogin.id);
-        navigate('/teamlead-dashboard');
-      } else {
+      if (!response.ok) {
+        setError(data.error || 'Invalid credentials.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const userRoleLower = data.user.role.toUpperCase();
+      if (userRoleLower !== Role.TEAM_LEAD && userRoleLower !== Role.ADMIN) {
         setError('Invalid team lead credentials.');
         setIsSubmitting(false);
+        return;
       }
-    }, 800);
+
+      // Modernized AuthContext login
+      login({ email: data.user.email, pin: password });
+      switchUser(data.user.id.toString());
+      navigate('/teamlead-dashboard');
+    } catch (err) {
+      setError('Could not connect to the server.');
+      setIsSubmitting(false);
+    }
   };
 
   return (

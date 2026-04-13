@@ -17,7 +17,7 @@ public class Project {
 
     @ManyToOne
     @JoinColumn(name = "project_manager_id")
-    private User projectManager;
+    private User teamLead;
 
     @ManyToMany
     @JoinTable(
@@ -29,10 +29,10 @@ public class Project {
 
     public Project() {}
 
-    public Project(String name, String description, User projectManager) {
+    public Project(String name, String description, User teamLead) {
         this.name = name;
         this.description = description;
-        this.projectManager = projectManager;
+        this.teamLead = teamLead;
     }
 
     public Long getId() { return id; }
@@ -44,8 +44,8 @@ public class Project {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    public User getProjectManager() { return projectManager; }
-    public void setProjectManager(User projectManager) { this.projectManager = projectManager; }
+    public User getTeamLead() { return teamLead; }
+    public void setTeamLead(User teamLead) { this.teamLead = teamLead; }
 
     public Set<User> getOperators() { return operators; }
     public void setOperators(Set<User> operators) { this.operators = operators; }

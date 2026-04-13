@@ -10,7 +10,6 @@ import PortalLayout from "./components/portal/PortalLayout";
 import OperatorProjectsList from "./components/portal/OperatorProjectsList";
 import OperatorProjectView from "./components/portal/OperatorProjectView";
 import AdminLogin from "./components/auth/AdminLogin";
-import ManagerLogin from "./components/auth/ManagerLogin";
 import TeamLeadLogin from "./components/auth/TeamLeadLogin";
 import TeamLeadLayout from "./components/TeamLeadLayout";
 import KeyboardShortcuts from "./components/KeyboardShortcuts";
@@ -93,7 +92,6 @@ export default function App() {
                 <Route path="/debug" element={<DebugPage />} />
 
                 <Route path="/admin" element={<AdminLogin />} />
-                <Route path="/manager" element={<ManagerLogin />} />
                 <Route path="/teamlead" element={<TeamLeadLogin />} />
                 <Route path="/teamlead-dashboard/*" element={<TeamLeadLayout />} />
 

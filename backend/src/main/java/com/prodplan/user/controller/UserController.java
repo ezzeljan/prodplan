@@ -58,8 +58,9 @@ public class UserController {
 
     @PostMapping("/users")
     public ResponseEntity<?> createUser(@RequestBody CreateUserRequest request) {
-        // Authenticate the caller (Admin or PM) attempting to create the user
-        Optional<User> callerOpt = userService.authenticate(request.adminEmail(), request.adminPin());
+        System.out.println("[DEBUG] createUser request=" + request);
+        // Authenticate the caller (Admin or Team Lead) attempting to create the user
+        Optional<User> callerOpt = userService.authenticate(request.callerEmail(), request.callerPin());
         if (callerOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Authentication failed"));
         }
@@ -68,12 +69,12 @@ public class UserController {
         // Authorization checks
         boolean isAuthorized = false;
         if (caller.getRole() == Role.ADMIN) {
-            // Admin can ONLY create Project Managers
-            if (request.role() == Role.PROJECT_MANAGER) {
+            // Admin can ONLY create Team Leads
+            if (request.role() == Role.TEAM_LEAD) {
                 isAuthorized = true;
             }
-        } else if (caller.getRole() == Role.PROJECT_MANAGER) {
-            // Project Managers can ONLY create Operators
+        } else if (caller.getRole() == Role.TEAM_LEAD) {
+            // Team Leads can ONLY create Operators
             if (request.role() == Role.OPERATOR) {
                 isAuthorized = true;
             }
@@ -81,13 +82,15 @@ public class UserController {
 
         if (!isAuthorized) {
             String errorMsg = caller.getRole() == Role.ADMIN ? 
-                "Admins can only create Project Managers. Operators must be created by Project Managers." :
+                "Admins can only create Team Leads. Operators must be created by Team Leads." :
                 "Insufficient permissions or invalid role creation.";
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", errorMsg));
         }
 
     try {
+        System.out.println("[DEBUG] Creating user in service...");
         User createdUser = userService.createUser(request.name(), request.email(), request.role(), request.manualPin());
+        System.out.println("[DEBUG] User created: " + createdUser.getId());
         
         // Integrated/Dynamic Project Assignment
         Project targetProject = null;
@@ -106,11 +109,19 @@ public class UserController {
         }
 
             if (targetProject != null) {
-                if (createdUser.getRole() == Role.PROJECT_MANAGER) {
-                    projectService.updateProject(targetProject.getId(), null, null, createdUser.getId());
-                } else if (createdUser.getRole() == Role.OPERATOR) {
-                    projectService.assignOperator(targetProject.getId(), createdUser.getId());
+                System.out.println("[DEBUG] Assigning user to project: " + targetProject.getName());
+                try {
+                    if (createdUser.getRole() == Role.TEAM_LEAD) {
+                        projectService.updateProject(targetProject.getId(), null, null, createdUser.getId());
+                    } else if (createdUser.getRole() == Role.OPERATOR) {
+                        projectService.assignOperator(targetProject.getId(), createdUser.getId());
+                    }
+                } catch (Exception e) {
+                    // Log error and continue - user creation was successful
+                    System.err.println("[ERROR] Failed to assign project: " + e.getMessage());
                 }
+            } else {
+                System.out.println("[DEBUG] No target project for assignment.");
             }
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                     "message", "User created successfully",
@@ -130,9 +141,9 @@ public class UserController {
     @DeleteMapping("/users/{id}")
     public ResponseEntity<?> deleteUser(
             @PathVariable Long id,
-            @RequestParam String adminEmail,
-            @RequestParam String adminPin) {
-        Optional<User> callerOpt = userService.authenticate(adminEmail, adminPin);
+            @RequestParam String callerEmail,
+            @RequestParam String callerPin) {
+        Optional<User> callerOpt = userService.authenticate(callerEmail, callerPin);
         if (callerOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Authentication failed"));
         }
@@ -140,8 +151,8 @@ public class UserController {
         User caller = callerOpt.get();
         boolean isAuthorized = caller.getRole() == Role.ADMIN;
 
-        // If PM, they can only delete Operators
-        if (!isAuthorized && caller.getRole() == Role.PROJECT_MANAGER) {
+        // If Team Lead, they can only delete Operators
+        if (!isAuthorized && caller.getRole() == Role.TEAM_LEAD) {
             Optional<User> targetOpt = userService.getUserById(id);
             if (targetOpt.isPresent() && targetOpt.get().getRole() == Role.OPERATOR) {
                 isAuthorized = true;
@@ -164,8 +175,8 @@ public class UserController {
     public ResponseEntity<?> updateUser(
             @PathVariable Long id,
             @RequestBody UpdateUserRequest request) {
-        // Authenticate the caller (Admin or PM) attempting to update the user
-        Optional<User> callerOpt = userService.authenticate(request.adminEmail(), request.adminPin());
+        // Authenticate the caller (Admin or Team Lead) attempting to update the user
+        Optional<User> callerOpt = userService.authenticate(request.callerEmail(), request.callerPin());
         if (callerOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Authentication failed"));
         }
@@ -173,8 +184,8 @@ public class UserController {
         User caller = callerOpt.get();
         boolean isAuthorized = caller.getRole() == Role.ADMIN;
 
-        // If PM, they can only update Operators
-        if (!isAuthorized && caller.getRole() == Role.PROJECT_MANAGER) {
+        // If Team Lead, they can only update Operators
+        if (!isAuthorized && caller.getRole() == Role.TEAM_LEAD) {
             Optional<User> targetOpt = userService.getUserById(id);
             if (targetOpt.isPresent() && targetOpt.get().getRole() == Role.OPERATOR) {
                 isAuthorized = true;
@@ -197,6 +208,6 @@ public class UserController {
     }
 
     public record LoginRequest(String email, String pin) {}
-    public record CreateUserRequest(String name, String email, Role role, String adminEmail, String adminPin, String manualPin, String projectId, String projectTitle) {}
-    public record UpdateUserRequest(String name, String email, Role role, String pin, String adminEmail, String adminPin) {}
+    public record CreateUserRequest(String name, String email, Role role, String callerEmail, String callerPin, String manualPin, String projectId, String projectTitle) {}
+    public record UpdateUserRequest(String name, String email, Role role, String pin, String callerEmail, String callerPin) {}
 }

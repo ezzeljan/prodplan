@@ -9,29 +9,27 @@ export interface StorageProvider {
     getProject(id: string): Promise<UnifiedProject | undefined>;
     getAllProjects(pmId?: string, operatorId?: string): Promise<UnifiedProject[]>;
     deleteProject(id: string, adminEmail?: string, adminPin?: string): Promise<void>;
-    updateProject(id: string, updates: Partial<UnifiedProject>): Promise<void>;
+    updateProject(id: string, updates: Partial<UnifiedProject>, adminEmail?: string, adminPin?: string): Promise<void>;
 
     // Users
-    saveUser(user: Omit<User, 'id'> & { manualPin?: string; projectId?: string; projectTitle?: string }, adminEmail: string, adminPin: string): Promise<User>;
-    updateUser(id: string, updates: Partial<User & { manualPin?: string }>, adminEmail: string, adminPin: string): Promise<User>;
+    // Users
+    saveUser(user: Omit<User, 'id'> & { manualPin?: string; projectId?: string; projectTitle?: string }, callerEmail: string, callerPin: string): Promise<User>;
+    updateUser(id: string, updates: Partial<User & { manualPin?: string }>, callerEmail: string, callerPin: string): Promise<User>;
     getUserByEmail(email: string): Promise<User | undefined>;
     getUserById(id: string): Promise<User | undefined>;
     getAllUsers(): Promise<User[]>;
-    deleteUser(id: string, adminEmail: string, adminPin: string): Promise<void>;
+    deleteUser(id: string, callerEmail: string, callerPin: string): Promise<void>;
     getOperatorById(id: string): Promise<User | undefined>;
 
     // Remote Assignments
-    assignOperator(projectId: string, operatorId: string, adminEmail: string, adminPin: string): Promise<void>;
-    removeOperator(projectId: string, operatorId: string, adminEmail: string, adminPin: string): Promise<void>;
+    assignTeamLead(projectId: string, teamLeadId: string, callerEmail: string, callerPin: string): Promise<void>;
+    assignOperator(projectId: string, operatorId: string, callerEmail: string, callerPin: string): Promise<void>;
+    removeOperator(projectId: string, operatorId: string, callerEmail: string, callerPin: string): Promise<void>;
 }
 
 class BackendProvider implements StorageProvider {
-    private getAdminParams(email: string, pin: string) {
-        return `adminEmail=${encodeURIComponent(email)}&adminPin=${encodeURIComponent(pin)}`;
-    }
-
     async saveProject(project: UnifiedProject, adminEmail?: string, adminPin?: string): Promise<void> {
-        const response = await fetch(`${API_URL}/projects?${this.getAdminParams(adminEmail || '', adminPin || '')}`, {
+        const response = await fetch(`${API_URL}/projects?adminEmail=${encodeURIComponent(adminEmail || '')}&adminPin=${encodeURIComponent(adminPin || '')}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -64,19 +62,17 @@ class BackendProvider implements StorageProvider {
     }
 
     async deleteProject(id: string, adminEmail?: string, adminPin?: string): Promise<void> {
-        const response = await fetch(`${API_URL}/projects/${id}?${this.getAdminParams(adminEmail || '', adminPin || '')}`, {
+        const response = await fetch(`${API_URL}/projects/${id}?adminEmail=${encodeURIComponent(adminEmail || '')}&adminPin=${encodeURIComponent(adminPin || '')}`, {
             method: 'DELETE'
         });
         if (!response.ok) throw new Error('Failed to delete project');
     }
 
-    async updateProject(id: string, updates: Partial<UnifiedProject>): Promise<void> {
-        const adminSession = sessionStorage.getItem('admin-session');
+    async updateProject(id: string, updates: Partial<UnifiedProject>, adminEmail?: string, adminPin?: string): Promise<void> {
         const body = { ...updates } as any;
-        if (adminSession) {
-            const { email, pin } = JSON.parse(adminSession);
-            body.adminEmail = email;
-            body.adminPin = pin;
+        if (adminEmail && adminPin) {
+            body.adminEmail = adminEmail;
+            body.adminPin = adminPin;
         }
 
         // Handle projectManager nested object mapping to ID for backend
@@ -92,23 +88,23 @@ class BackendProvider implements StorageProvider {
         if (!response.ok) throw new Error('Failed to update project');
     }
 
-    async saveUser(user: Omit<User, 'id'> & { manualPin?: string; projectId?: string; projectTitle?: string }, adminEmail: string, adminPin: string): Promise<User> {
+    async saveUser(user: Omit<User, 'id'> & { manualPin?: string; projectId?: string; projectTitle?: string }, callerEmail: string, callerPin: string): Promise<User> {
         const response = await fetch(`${API_URL}/users`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...user, adminEmail, adminPin })
+            body: JSON.stringify({ ...user, callerEmail, callerPin })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Failed to save user');
         return data.user;
     }
 
-    async updateUser(id: string, updates: Partial<User & { manualPin?: string }>, adminEmail: string, adminPin: string): Promise<User> {
+    async updateUser(id: string, updates: Partial<User & { manualPin?: string }>, callerEmail: string, callerPin: string): Promise<User> {
         const body = {
             ...updates,
             pin: updates.manualPin, // Map manualPin to pin for the update endpoint if present
-            adminEmail,
-            adminPin
+            callerEmail,
+            callerPin
         };
         const response = await fetch(`${API_URL}/users/${id}`, {
             method: 'PUT',
@@ -148,8 +144,8 @@ class BackendProvider implements StorageProvider {
         return response.json();
     }
 
-    async deleteUser(id: string, adminEmail: string, adminPin: string): Promise<void> {
-        const response = await fetch(`${API_URL}/users/${id}?${this.getAdminParams(adminEmail, adminPin)}`, {
+    async deleteUser(id: string, callerEmail: string, callerPin: string): Promise<void> {
+        const response = await fetch(`${API_URL}/users/${id}?callerEmail=${encodeURIComponent(callerEmail)}&callerPin=${encodeURIComponent(callerPin)}`, {
             method: 'DELETE'
         });
         if (!response.ok) throw new Error('Failed to delete user');
@@ -159,15 +155,24 @@ class BackendProvider implements StorageProvider {
         return this.getUserById(id);
     }
 
-    async assignOperator(projectId: string, operatorId: string, adminEmail: string, adminPin: string): Promise<void> {
-        const response = await fetch(`${API_URL}/projects/${projectId}/operators/${operatorId}?${this.getAdminParams(adminEmail, adminPin)}`, {
+    async assignTeamLead(projectId: string, teamLeadId: string, callerEmail: string, callerPin: string): Promise<void> {
+        const response = await fetch(`${API_URL}/projects/${projectId}?callerEmail=${encodeURIComponent(callerEmail)}&callerPin=${encodeURIComponent(callerPin)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectManagerId: teamLeadId, callerEmail, callerPin })
+        });
+        if (!response.ok) throw new Error('Failed to assign team lead');
+    }
+
+    async assignOperator(projectId: string, operatorId: string, callerEmail: string, callerPin: string): Promise<void> {
+        const response = await fetch(`${API_URL}/projects/${projectId}/operators/${operatorId}?callerEmail=${encodeURIComponent(callerEmail)}&callerPin=${encodeURIComponent(callerPin)}`, {
             method: 'POST'
         });
         if (!response.ok) throw new Error('Failed to assign operator');
     }
 
-    async removeOperator(projectId: string, operatorId: string, adminEmail: string, adminPin: string): Promise<void> {
-        const response = await fetch(`${API_URL}/projects/${projectId}/operators/${operatorId}?${this.getAdminParams(adminEmail, adminPin)}`, {
+    async removeOperator(projectId: string, operatorId: string, callerEmail: string, callerPin: string): Promise<void> {
+        const response = await fetch(`${API_URL}/projects/${projectId}/operators/${operatorId}?callerEmail=${encodeURIComponent(callerEmail)}&callerPin=${encodeURIComponent(callerPin)}`, {
             method: 'DELETE'
         });
         if (!response.ok) throw new Error('Failed to remove operator');
@@ -221,6 +226,10 @@ class IndexedDBProvider implements StorageProvider {
 
     async getOperatorById(id: string): Promise<User | undefined> {
         return Promise.resolve(undefined);
+    }
+
+    async assignTeamLead(): Promise<void> {
+        return Promise.resolve();
     }
 
     async assignOperator(): Promise<void> {

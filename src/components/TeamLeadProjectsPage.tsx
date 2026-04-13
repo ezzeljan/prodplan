@@ -40,7 +40,7 @@ export default function TeamLeadProjectsPage() {
         setLoading(true);
         try {
             const all = await storage.getAllProjects();
-            setProjects(all);
+            setProjects(all || []);
         } catch (err) {
             console.error('Failed to load projects:', err);
         } finally {
@@ -152,16 +152,14 @@ export default function TeamLeadProjectsPage() {
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                                filter === f
-                                    ? 'bg-[var(--accent-primary)] text-white shadow-md'
-                                    : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
-                            }`}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${filter === f
+                                ? 'bg-[var(--accent-primary)] text-white shadow-md'
+                                : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
+                                }`}
                         >
                             <span className="capitalize">{f}</span>
-                            <span className={`text-xs px-1.5 py-0.5 rounded-md ${
-                                filter === f ? 'bg-white/20' : 'bg-white/5'
-                            }`}>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-md ${filter === f ? 'bg-white/20' : 'bg-white/5'
+                                }`}>
                                 {filterCounts[f]}
                             </span>
                         </button>
@@ -222,7 +220,7 @@ export default function TeamLeadProjectsPage() {
                                         <div className="flex items-start gap-3 mb-3">
                                             <div className="w-10 h-10 rounded-xl bg-[var(--accent-primary)]/15 flex items-center justify-center shrink-0 mt-0.5">
                                                 <span className="text-sm font-bold text-[var(--accent-secondary)]">
-                                                    {project.name.charAt(0).toUpperCase()}
+                                                    {(project.name || '?').charAt(0).toUpperCase()}
                                                 </span>
                                             </div>
                                             <div className="min-w-0 flex-1">
@@ -252,11 +250,11 @@ export default function TeamLeadProjectsPage() {
                                             <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
                                                 <span className="flex items-center gap-1.5">
                                                     <Users className="w-3.5 h-3.5" />
-                                                    {project.resources.length} operator{project.resources.length !== 1 ? 's' : ''}
+                                                    {(project.resources || []).length} operator{(project.resources || []).length !== 1 ? 's' : ''}
                                                 </span>
                                                 <span className="flex items-center gap-1.5">
                                                     <Target className="w-3.5 h-3.5" />
-                                                    {project.goal.toLocaleString()} {project.unit}
+                                                    {(project.goal || 0).toLocaleString()} {project.unit || ''}
                                                 </span>
                                             </div>
                                         </div>
@@ -267,9 +265,8 @@ export default function TeamLeadProjectsPage() {
                                                 {formatDate(project.createdAt)}
                                             </span>
                                             {project.status === 'active' && (
-                                                <span className={`text-[10px] font-medium ${
-                                                    daysLeft < 0 ? 'text-red-400' : daysLeft <= 7 ? 'text-amber-400' : 'text-[var(--text-muted)]'
-                                                }`}>
+                                                <span className={`text-[10px] font-medium ${daysLeft < 0 ? 'text-red-400' : daysLeft <= 7 ? 'text-amber-400' : 'text-[var(--text-muted)]'
+                                                    }`}>
                                                     {daysLeft < 0
                                                         ? `${Math.abs(daysLeft)}d overdue`
                                                         : daysLeft === 0
@@ -297,11 +294,10 @@ export default function TeamLeadProjectsPage() {
                                     <button
                                         key={p}
                                         onClick={() => setPage(p)}
-                                        className={`w-9 h-9 text-sm rounded-xl transition-all ${
-                                            page === p
-                                                ? 'bg-[var(--accent-primary)] text-white shadow-md'
-                                                : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
-                                        }`}
+                                        className={`w-9 h-9 text-sm rounded-xl transition-all ${page === p
+                                            ? 'bg-[var(--accent-primary)] text-white shadow-md'
+                                            : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
+                                            }`}
                                     >
                                         {p}
                                     </button>

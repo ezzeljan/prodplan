@@ -4,23 +4,20 @@ import { Role as UserRole } from '../types/auth';
 import { Users, ChevronDown, Shield, Briefcase, User, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-const roleIcons: Record<UserRole, React.ReactNode> = {
+const roleIcons: Record<string, React.ReactNode> = {
     [UserRole.ADMIN]: <Shield className="w-3.5 h-3.5" />,
-    [UserRole.PROJECT_MANAGER]: <Briefcase className="w-3.5 h-3.5" />,
     [UserRole.TEAM_LEAD]: <Users className="w-3.5 h-3.5" />,
     [UserRole.OPERATOR]: <User className="w-3.5 h-3.5" />,
 };
 
-const roleColors: Record<UserRole, string> = {
+const roleColors: Record<string, string> = {
     [UserRole.ADMIN]: 'text-[var(--metric-purple)]',
-    [UserRole.PROJECT_MANAGER]: 'text-[var(--metric-blue)]',
     [UserRole.TEAM_LEAD]: 'text-[var(--accent-secondary)]',
     [UserRole.OPERATOR]: 'text-[var(--metric-green)]',
 };
 
-const roleBgColors: Record<UserRole, string> = {
+const roleBgColors: Record<string, string> = {
     [UserRole.ADMIN]: 'bg-[var(--metric-purple)]/10',
-    [UserRole.PROJECT_MANAGER]: 'bg-[var(--metric-blue)]/10',
     [UserRole.TEAM_LEAD]: 'bg-[var(--accent-secondary)]/10',
     [UserRole.OPERATOR]: 'bg-[var(--metric-green)]/10',
 };

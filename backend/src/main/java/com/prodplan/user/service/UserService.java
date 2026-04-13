@@ -28,22 +28,31 @@ public class UserService {
         }
 
         User user = new User(name, email, role, pin);
-        return userRepository.save(user);
+        try {
+            return userRepository.save(user);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("Database error: Likely a duplicate PIN or email usage.");
+        }
     }
 
     public Optional<User> authenticate(String email, String pin) {
-        Optional<User> userOpt = userRepository.findByPin(pin);
+        if (email == null || pin == null) return Optional.empty();
+        
+        String trimmedEmail = email.trim();
+        String trimmedPin = pin.trim();
+        
+        Optional<User> userOpt = userRepository.findByPin(trimmedPin);
         if (userOpt.isPresent()) {
             User user = userOpt.get();
-            // Admin and PM MUST match specialized email + password (PIN)
-            if (user.getRole() == Role.ADMIN || user.getRole() == Role.PROJECT_MANAGER) {
-                if (user.getEmail().equalsIgnoreCase(email)) {
+            // Admin and Team Lead MUST match specialized email + password (PIN)
+            if (user.getRole() == Role.ADMIN || user.getRole() == Role.TEAM_LEAD) {
+                if (user.getEmail().equalsIgnoreCase(trimmedEmail)) {
                     return userOpt;
                 } else {
                     return Optional.empty();
                 }
             }
-            // PM and Operators are PIN-centric
+            // Operators are PIN-centric
             return userOpt;
         }
         return Optional.empty();
@@ -79,13 +88,18 @@ public class UserService {
         if (email != null) user.setEmail(email);
         if (role != null) user.setRole(role);
 
-        return userRepository.save(user);
+        try {
+            return userRepository.save(user);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("Database error: Likely a duplicate PIN or email usage.");
+        }
     }
 
     private String generateUniquePin() {
         String pin;
         do {
-            int num = 100000 + secureRandom.nextInt(900000); // 6 digit PIN
+            // Generated 6-digit PIN as requested
+            long num = 100000L + (long)(secureRandom.nextDouble() * 900000L);
             pin = String.valueOf(num);
         } while (userRepository.findByPin(pin).isPresent());
         return pin;

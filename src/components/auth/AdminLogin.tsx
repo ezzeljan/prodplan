@@ -68,7 +68,7 @@ export default function AdminLogin() {
       }
 
       // Check if user is actually an admin
-      if (data.user.role !== 'ADMIN') {
+      if (data.user.role.toUpperCase() !== Role.ADMIN) {
         setError('Access denied. You do not have administrator privileges.');
         setIsSubmitting(false);
         return;

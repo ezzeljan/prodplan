@@ -15,9 +15,29 @@ public class User {
     @Column(nullable = false)
     private String email;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = RoleConverter.class)
     @Column(nullable = false)
     private Role role;
+
+    @jakarta.persistence.Converter(autoApply = true)
+    public static class RoleConverter implements AttributeConverter<Role, String> {
+        @Override
+        public String convertToDatabaseColumn(Role role) {
+            return role == null ? null : role.name();
+        }
+
+        @Override
+        public Role convertToEntityAttribute(String dbData) {
+            if (dbData == null) return null;
+            try {
+                return Role.valueOf(dbData.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Fallback for names like 'PROJECT_MANAGER' - we can handle this if needed
+                if ("PROJECT_MANAGER".equalsIgnoreCase(dbData)) return Role.TEAM_LEAD;
+                return Role.fromString(dbData);
+            }
+        }
+    }
 
     @Column(unique = true, nullable = false)
     private String pin;

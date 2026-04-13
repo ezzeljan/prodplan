@@ -9,9 +9,12 @@ import {
     X,
     KeyRound,
     AlertTriangle,
+    Target,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { type Operator } from '../utils/operatorStorage';
+import { storage } from '../utils/storageProvider';
+import { Role } from '../types/auth';
 
 export default function TeamLeadDashboard() {
     const { authSession } = useAuth();
@@ -20,26 +23,28 @@ export default function TeamLeadDashboard() {
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
     const [createdPin, setCreatedPin] = useState<string | null>(null);
-    const [addForm, setAddForm] = useState({ name: '', email: '' });
+    const [addForm, setAddForm] = useState({ name: '', email: '', manualPin: '', projectId: '', projectTitle: '' });
     const [addError, setAddError] = useState('');
     const [addSubmitting, setAddSubmitting] = useState(false);
+    const [myProjects, setMyProjects] = useState<any[]>([]);
 
     const loadOperators = useCallback(async () => {
         if (!authSession) return;
-        const { email, pin } = authSession;
 
         try {
-            const response = await fetch(`http://localhost:8080/api/users?teamLeadEmail=${email}&teamLeadPin=${pin}`);
-            if (response.ok) {
-                const data = await response.json();
-                const ops: Operator[] = data.map((u: any) => ({
-                    id: u.id.toString(),
-                    name: u.name,
-                    email: u.email,
-                    pinHash: '',
-                    createdAt: new Date().toISOString()
-                }));
-                setOperators(ops);
+            const allUsers = await storage.getAllUsers();
+            // In a real scenario, we'd filter by project or team lead assignment
+            // For now, Team Leads see all operators or those assigned to their project
+            // Assuming TL only manages operators.
+            setOperators(allUsers.filter(u => u.role === Role.OPERATOR) as any);
+
+            const allProjects = await storage.getAllProjects();
+            const managedProjects = allProjects.filter(p => p.projectManager?.email.toLowerCase() === authSession.email.toLowerCase());
+            setMyProjects(managedProjects);
+
+            // Optionally, if the form lacks a projectId, default it to the first managed project
+            if (managedProjects.length > 0) {
+                setAddForm(f => ({ ...f, projectId: f.projectId || managedProjects[0].id, projectTitle: f.projectTitle || managedProjects[0].name }));
             }
         } catch (err) {
             console.error('Failed to load operators', err);
@@ -56,10 +61,20 @@ export default function TeamLeadDashboard() {
         setTimeout(() => setLinkCopied(false), 2000);
     };
 
+    const generatePin = () => {
+        const generated = Math.floor(100000 + Math.random() * 900000).toString();
+        setAddForm(f => ({ ...f, manualPin: generated }));
+    };
+
     const handleAddOperator = async () => {
-        const { name, email } = addForm;
-        if (!name.trim() || !email.trim()) {
-            setAddError('All fields are required.');
+        const { name, manualPin, projectId, projectTitle } = addForm;
+        if (!name.trim()) {
+            setAddError('Name is required.');
+            return;
+        }
+
+        if (!projectTitle?.trim()) {
+            setAddError('You must specify a project to assign the operator to.');
             return;
         }
 
@@ -71,31 +86,25 @@ export default function TeamLeadDashboard() {
         setAddSubmitting(true);
         setAddError('');
         try {
-            const response = await fetch('http://localhost:8080/api/users', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            const newUser = await storage.saveUser(
+                {
                     name: name.trim(),
-                    email: email.toLowerCase().trim(),
-                    role: 'OPERATOR',
-                    teamLeadEmail: authSession.email,
-                    teamLeadPin: authSession.pin
-                })
-            });
+                    email: '', // Operators do not use an email for login
+                    role: Role.OPERATOR,
+                    manualPin: manualPin.trim() || undefined,
+                    projectId: projectId,
+                    projectTitle: projectTitle
+                },
+                authSession.email,
+                authSession.pin
+            );
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                setAddError(data.error || 'Failed to save operator.');
-                return;
-            }
-
-            setCreatedPin(data.user.pin);
+            setCreatedPin(newUser.pin || manualPin.trim() || 'Check Email');
             await loadOperators();
-            setAddForm({ name: '', email: '' });
-        } catch (err) {
+            setAddForm({ name: '', email: '', manualPin: '', projectId: '', projectTitle: '' });
+        } catch (err: any) {
             console.error(err);
-            setAddError('Could not connect to the server.');
+            setAddError(err.message || 'Could not connect to the server.');
         } finally {
             setAddSubmitting(false);
         }
@@ -174,22 +183,24 @@ export default function TeamLeadDashboard() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-[var(--text-primary)] truncate">{op.name}</p>
-                                        <p className="text-xs text-[var(--text-muted)] truncate">{op.email}</p>
+                                        <p className="text-xs font-mono font-bold tracking-widest text-[var(--metric-green)]">
+                                            PIN: {op.pin || '------'}
+                                        </p>
                                     </div>
-                                    <p className="text-[10px] text-[var(--text-muted)] hidden sm:block">
-                                        {new Date(op.createdAt).toLocaleDateString()}
+                                    <p className="text-[10px] text-[var(--text-muted)] hidden sm:block truncate">
+                                        {op.createdAt ? new Date(op.createdAt).toLocaleDateString() : 'No Date'}
                                     </p>
                                     {deleteConfirmId === op.id ? (
                                         <div className="flex items-center gap-1">
                                             <button
                                                 onClick={async () => {
                                                     if (!authSession) return;
-                                                    await fetch(`http://localhost:8080/api/users/${op.id}`, {
-                                                        method: 'DELETE',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ teamLeadEmail: authSession.email })
-                                                    });
-                                                    await loadOperators();
+                                                    try {
+                                                        await storage.deleteUser(op.id, authSession.email, authSession.pin);
+                                                        await loadOperators();
+                                                    } catch (err) {
+                                                        console.error('Failed to delete operator', err);
+                                                    }
                                                     setDeleteConfirmId(null);
                                                 }}
                                                 className="p-1.5 rounded-lg bg-[var(--metric-red)]/15 hover:bg-[var(--metric-red)]/25 transition-colors cursor-pointer"
@@ -274,14 +285,47 @@ export default function TeamLeadDashboard() {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">Email</label>
+                                                <div className="flex items-center justify-between pl-1 mb-1">
+                                                    <label className="text-xs font-medium text-[var(--text-secondary)] block">6-Digit PIN</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={generatePin}
+                                                        className="text-[10px] text-[var(--accent-secondary)] hover:underline font-bold"
+                                                    >
+                                                        Auto-Generate
+                                                    </button>
+                                                </div>
                                                 <input
-                                                    type="email"
-                                                    value={addForm.email}
-                                                    onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))}
-                                                    placeholder="operator@company.com"
-                                                    className="glass-input w-full px-3 py-2.5 text-sm"
+                                                    type="text"
+                                                    maxLength={6}
+                                                    value={addForm.manualPin || ''}
+                                                    onChange={e => setAddForm(f => ({ ...f, manualPin: e.target.value.replace(/\D/g, '').substring(0, 6) }))}
+                                                    placeholder="123456"
+                                                    className="glass-input w-full px-3 py-2.5 text-sm font-mono tracking-widest"
                                                 />
+                                                <p className="text-[10px] text-[var(--text-muted)] mt-1 px-1">Must be exactly 6 digits. Leave empty for the backend to auto-generate.</p>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">Assign to Project Lifecycle</label>
+                                                <div className="relative">
+                                                    <Target className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+                                                    <input
+                                                        list="project-list"
+                                                        value={addForm.projectTitle || ''}
+                                                        onChange={e => {
+                                                            const pTitle = e.target.value;
+                                                            const matchedProject = myProjects.find(p => p.name === pTitle);
+                                                            setAddForm(f => ({ ...f, projectTitle: pTitle, projectId: matchedProject ? matchedProject.id : '' }));
+                                                        }}
+                                                        placeholder="Enter or select project name..."
+                                                        className="glass-input w-full pl-9 pr-4 py-2.5 text-sm bg-transparent"
+                                                    />
+                                                    <datalist id="project-list">
+                                                        {myProjects.map(p => (
+                                                            <option key={p.id} value={p.name} />
+                                                        ))}
+                                                    </datalist>
+                                                </div>
                                             </div>
                                         </>
                                     )}
