@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import {
     Users,
     Plus,
@@ -13,6 +14,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { type Operator } from '../utils/operatorStorage';
 
 export default function TeamLeadDashboard() {
+    const { authSession } = useAuth();
     const [operators, setOperators] = useState<Operator[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -23,9 +25,8 @@ export default function TeamLeadDashboard() {
     const [addSubmitting, setAddSubmitting] = useState(false);
 
     const loadOperators = useCallback(async () => {
-        const teamLeadSession = sessionStorage.getItem('teamlead-session');
-        if (!teamLeadSession) return;
-        const { email, pin } = JSON.parse(teamLeadSession);
+        if (!authSession) return;
+        const { email, pin } = authSession;
 
         try {
             const response = await fetch(`http://localhost:8080/api/users?teamLeadEmail=${email}&teamLeadPin=${pin}`);
@@ -43,7 +44,7 @@ export default function TeamLeadDashboard() {
         } catch (err) {
             console.error('Failed to load operators', err);
         }
-    }, []);
+    }, [authSession]);
 
     useEffect(() => { loadOperators(); }, [loadOperators]);
 
@@ -62,12 +63,10 @@ export default function TeamLeadDashboard() {
             return;
         }
 
-        const teamLeadSession = sessionStorage.getItem('teamlead-session');
-        if (!teamLeadSession) {
+        if (!authSession) {
             setAddError('Your session has expired. Please log in again.');
             return;
         }
-        const teamLead = JSON.parse(teamLeadSession);
 
         setAddSubmitting(true);
         setAddError('');
@@ -79,8 +78,8 @@ export default function TeamLeadDashboard() {
                     name: name.trim(),
                     email: email.toLowerCase().trim(),
                     role: 'OPERATOR',
-                    teamLeadEmail: teamLead.email,
-                    teamLeadPin: teamLead.pin
+                    teamLeadEmail: authSession.email,
+                    teamLeadPin: authSession.pin
                 })
             });
 
@@ -184,10 +183,11 @@ export default function TeamLeadDashboard() {
                                         <div className="flex items-center gap-1">
                                             <button
                                                 onClick={async () => {
+                                                    if (!authSession) return;
                                                     await fetch(`http://localhost:8080/api/users/${op.id}`, {
                                                         method: 'DELETE',
                                                         headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ teamLeadEmail: JSON.parse(sessionStorage.getItem('teamlead-session') || '{}').email })
+                                                        body: JSON.stringify({ teamLeadEmail: authSession.email })
                                                     });
                                                     await loadOperators();
                                                     setDeleteConfirmId(null);

@@ -9,5 +9,7 @@ import java.util.List;
 
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
-    List<Project> findByTeamLead(User teamLead);
+    List<Project> findByProjectManager(User projectManager);
+    List<Project> findByOperatorsContaining(User operator);
+    java.util.Optional<Project> findByName(String name);
 }

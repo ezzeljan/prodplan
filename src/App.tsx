@@ -19,6 +19,7 @@ import { ProjectProvider } from "./contexts/ProjectContext";
 import { UserProvider } from "./contexts/UserContext";
 import { AISpreadsheetProvider } from "./contexts/AISpreadsheetContext";
 import UserSwitcher from "./components/UserSwitcher";
+import DebugPage from "./components/DebugPage";
 
 function MainLayout() {
   const { isSignedIn } = useAuth();
@@ -53,57 +54,56 @@ function MainLayout() {
   }
 
   return (
-    <ProjectProvider>
-      <AISpreadsheetProvider>
-        <div className="bg-[var(--surface-primary)] font-['Manrope',sans-serif] h-screen flex">
-          <Navbar />
-          <main
-            className="flex-1 transition-all duration-300 pt-16 md:pt-0"
-            style={{
-              marginLeft: isDesktop ? sidebarOffset : 0,
-              width: isDesktop ? `calc(100% - ${sidebarOffset}px)` : "100%",
-            }}
-          >
-            <Routes>
-              <Route path="/" element={<ProductionPlanMaker />} />
-              <Route path="/projects" element={<ProjectsPage />} />
-              <Route path="/projects/:id" element={<SpreadsheetPage />} />
-              <Route path="/dashboard" element={<AdminDashboard />} />
-              <Route path="/production-plan" element={<ProductionPlanStorage />} />
-            </Routes>
-          </main>
-        </div>
-      </AISpreadsheetProvider>
-    </ProjectProvider>
+    <div className="bg-[var(--surface-primary)] font-['Manrope',sans-serif] h-screen flex">
+      <Navbar />
+      <main
+        className="flex-1 transition-all duration-300 pt-16 md:pt-0"
+        style={{
+          marginLeft: isDesktop ? sidebarOffset : 0,
+          width: isDesktop ? `calc(100% - ${sidebarOffset}px)` : "100%",
+        }}
+      >
+        <Routes>
+          <Route path="/" element={<ProductionPlanMaker />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:id" element={<SpreadsheetPage />} />
+          <Route path="/dashboard" element={<AdminDashboard />} />
+          <Route path="/production-plan" element={<ProductionPlanStorage />} />
+        </Routes>
+      </main>
+    </div>
   );
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <KeyboardShortcuts />
-      {/* Operator portal -- separate layout, uses its own OperatorAuthContext */}
-      <Routes>
-        <Route path="/portal" element={<PortalLayout />}>
-          <Route index element={<OperatorProjectsList />} />
-          <Route path="project/:id" element={<OperatorProjectView />} />
-        </Route>
-
-        {/* Admin / main app uses AuthContext and AuthProvider */}
-        <Route path="/*" element={
-          <AuthProvider>
-            <UserProvider>
+      <AuthProvider>
+        <UserProvider>
+          <ProjectProvider>
+            <AISpreadsheetProvider>
+              <KeyboardShortcuts />
               <Routes>
-                <Route path="admin" element={<AdminLogin />} />
-                <Route path="manager" element={<ManagerLogin />} />
-                <Route path="teamlead" element={<TeamLeadLogin />} />
-                <Route path="teamlead-dashboard/*" element={<TeamLeadLayout />} />
-                <Route path="*" element={<MainLayout />} />
+                {/* Operator portal */}
+                <Route path="/portal" element={<PortalLayout />}>
+                  <Route index element={<OperatorProjectsList />} />
+                  <Route path="project/:id" element={<OperatorProjectView />} />
+                </Route>
+
+                <Route path="/debug" element={<DebugPage />} />
+
+                <Route path="/admin" element={<AdminLogin />} />
+                <Route path="/manager" element={<ManagerLogin />} />
+                <Route path="/teamlead" element={<TeamLeadLogin />} />
+                <Route path="/teamlead-dashboard/*" element={<TeamLeadLayout />} />
+
+                {/* Main app */}
+                <Route path="/*" element={<MainLayout />} />
               </Routes>
-            </UserProvider>
-          </AuthProvider>
-        } />
-      </Routes>
+            </AISpreadsheetProvider>
+          </ProjectProvider>
+        </UserProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

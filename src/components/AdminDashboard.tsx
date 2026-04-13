@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useProjects, ProjectMetrics } from '../contexts/ProjectContext';
+import { useAuth } from '../contexts/AuthContext';
 import {
     BarChart3,
     TrendingUp,
@@ -17,11 +18,15 @@ import {
     X,
     KeyRound,
     AlertTriangle,
+    Eye,
+    EyeOff,
+    Briefcase,
+    ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import UserSwitcher from './UserSwitcher';
 import { storage } from '../utils/storageProvider';
-import { hashPin, type Operator } from '../utils/operatorStorage';
+import { Role, type User } from '../types/auth';
 
 // ─── Metric Card ───
 function MetricCard({
@@ -80,6 +85,9 @@ function OperatorRow({
             : rate >= 0.7 ? 'bg-[var(--metric-amber)]'
                 : 'bg-[var(--metric-red)]';
 
+    const statusText = rate >= 1 ? 'Target Met' : rate >= 0.8 ? 'On Track' : rate >= 0.5 ? 'Behind' : 'At Risk';
+    const statusColor = rate >= 1 ? 'text-[var(--metric-green)]' : rate >= 0.8 ? 'text-[var(--accent-secondary)]' : rate >= 0.5 ? 'text-[var(--metric-amber)]' : 'text-[var(--metric-red)]';
+
     return (
         <div className="flex items-center gap-4 py-3 border-b border-white/5 last:border-0">
             <span className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-xs font-bold text-[var(--text-muted)]">
@@ -94,9 +102,9 @@ function OperatorRow({
                     <span className="text-xs text-[var(--text-muted)] w-12 text-right">{(rate * 100).toFixed(0)}%</span>
                 </div>
             </div>
-            <div className="text-right">
+            <div className="text-right flex flex-col items-end">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">{actual}</p>
-                <p className="text-xs text-[var(--text-muted)]">/ {target}</p>
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>{statusText}</p>
             </div>
         </div>
     );
@@ -104,44 +112,77 @@ function OperatorRow({
 
 // ─── Main Dashboard ───
 export default function AdminDashboard() {
-    const { projects, activeProjectId, setActiveProjectId, getProjectMetrics } = useProjects();
+    const { projects, activeProjectId, setActiveProjectId, getProjectMetrics, updateProject } = useProjects();
     const [filterOpen, setFilterOpen] = useState(false);
+    const [selectedPersonnelId, setSelectedPersonnelId] = useState<string | null>(null);
+    const projectDetailRef = useRef<HTMLDivElement>(null);
 
-    // Operator management state
-    const [operators, setOperators] = useState<Operator[]>([]);
+
+    const scrollToProject = (projectId: string) => {
+        setActiveProjectId(projectId);
+        setTimeout(() => {
+            projectDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    };
+
+    // User management state
+    const [users, setUsers] = useState<User[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
     const [createdPin, setCreatedPin] = useState<string | null>(null);
-    const [addForm, setAddForm] = useState({ name: '', email: '', pin: '', confirmPin: '' });
+    const [editUserId, setEditUserId] = useState<string | null>(null);
+    const [addForm, setAddForm] = useState<{
+        name: string;
+        email: string;
+        role: Role;
+        manualPin: string;
+        projectId: string; // Keep ID for legacy logic if needed
+        projectTitle: string; // New field for flexible entry
+    }>({
+        name: '',
+        email: '',
+        role: Role.PROJECT_MANAGER,
+        manualPin: '',
+        projectId: '',
+        projectTitle: ''
+    });
     const [addError, setAddError] = useState('');
     const [addSubmitting, setAddSubmitting] = useState(false);
 
-    const loadOperators = useCallback(async () => {
-        const adminSession = sessionStorage.getItem('admin-session');
-        if (!adminSession) return;
-        const { email, pin } = JSON.parse(adminSession);
-
+    const loadUsers = useCallback(async () => {
         try {
-            const response = await fetch(`http://localhost:8080/api/users?adminEmail=${email}&adminPin=${pin}`);
-            if (response.ok) {
-                const data = await response.json();
-                // Map backend User to local Operator type
-                const ops: Operator[] = data.map((u: any) => ({
-                    id: u.id.toString(),
-                    name: u.name,
-                    email: u.email,
-                    pinHash: '', // We use real backend PINs now
-                    createdAt: new Date().toISOString()
-                }));
-                setOperators(ops);
-            }
+            const allUsers = await storage.getAllUsers();
+            setUsers(allUsers);
         } catch (err) {
-            console.error('Failed to load operators', err);
+            console.error('Failed to load users', err);
         }
     }, []);
+    const [revealedPins, setRevealedPins] = useState<Set<string>>(new Set());
 
-    useEffect(() => { loadOperators(); }, [loadOperators]);
+    const togglePin = (userId: string) => {
+        setRevealedPins(prev => {
+            const next = new Set(prev);
+            if (next.has(userId)) next.delete(userId);
+            else next.add(userId);
+            return next;
+        });
+    };
+
+    useEffect(() => { loadUsers(); }, [loadUsers]);
+
+    const handleEditUser = (user: User) => {
+        setAddForm({
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            manualPin: user.pin || '',
+            projectId: '',
+            projectTitle: ''
+        });
+        setEditUserId(user.id);
+        setShowAddModal(true);
+    };
 
     const portalUrl = `${window.location.origin}/portal`;
 
@@ -151,59 +192,93 @@ export default function AdminDashboard() {
         setTimeout(() => setLinkCopied(false), 2000);
     };
 
-    const handleAddOperator = async () => {
-        const { name, email } = addForm;
-        if (!name.trim() || !email.trim()) {
-            setAddError('All fields are required.');
+    const { authSession } = useAuth();
+
+    const handleAddUser = async () => {
+        const { name, email, role, manualPin, projectTitle } = addForm;
+        if (!name.trim()) {
+            setAddError('Please enter a name.');
             return;
         }
 
-        const adminSession = sessionStorage.getItem('admin-session');
-        if (!adminSession) {
+        if (!authSession) {
             setAddError('Your session has expired. Please log in again.');
+            // Optional: navigate('/admin') or trigger re-login
             return;
         }
-        const admin = JSON.parse(adminSession);
 
         setAddSubmitting(true);
         setAddError('');
         try {
-            const response = await fetch('http://localhost:8080/api/users', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: name.trim(),
-                    email: email.toLowerCase().trim(),
-                    role: 'OPERATOR',
-                    adminEmail: admin.email,
-                    adminPin: admin.pin
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                setAddError(data.error || 'Failed to save operator.');
-                return;
+            if (editUserId) {
+                // Update existing user
+                await storage.updateUser(
+                    editUserId,
+                    {
+                        name: name.trim(),
+                        email: email.toLowerCase().trim(),
+                        role,
+                        manualPin: manualPin.trim() || undefined
+                    },
+                    authSession.email,
+                    authSession.pin
+                );
+                setEditUserId(null);
+            } else {
+                // Create new user
+                const newUser = await storage.saveUser(
+                    {
+                        name: name.trim(),
+                        email: email.toLowerCase().trim(),
+                        role,
+                        manualPin: manualPin.trim() || undefined,
+                        projectTitle: projectTitle.trim() || undefined
+                    },
+                    authSession.email,
+                    authSession.pin
+                );
+                setCreatedPin(newUser.pin || 'Check Email');
             }
 
             // Success!
-            setCreatedPin(data.user.pin); // Store the generated PIN to show to the admin
-            await loadOperators();
-            setAddForm({ name: '', email: '', pin: '', confirmPin: '' });
-        } catch (err) {
+            await loadUsers();
+            setAddForm({ name: '', email: '', role: Role.PROJECT_MANAGER, manualPin: '', projectId: '', projectTitle: '' });
+            if (editUserId) setShowAddModal(false);
+        } catch (err: any) {
             console.error(err);
-            setAddError('Could not connect to the server.');
+            setAddError(err.message || 'Could not connect to the server.');
         } finally {
             setAddSubmitting(false);
         }
     };
 
-    const handleDeleteOperator = async (id: string) => {
-        await storage.deleteOperator(id);
-        setDeleteConfirmId(null);
-        await loadOperators();
+    const handleDeleteUser = async (id: string) => {
+        const adminSession = sessionStorage.getItem('admin-session');
+        if (!adminSession) return;
+        const admin = JSON.parse(adminSession);
+
+        try {
+            await storage.deleteUser(id, admin.email, admin.pin);
+            setDeleteConfirmId(null);
+            await loadUsers();
+        } catch (err) {
+            console.error('Failed to delete user', err);
+        }
     };
+
+    const handleAssignPM = async (projectId: string, pmId: string) => {
+        const adminSession = sessionStorage.getItem('admin-session');
+        if (!adminSession) return;
+        const admin = JSON.parse(adminSession);
+        try {
+            // updateProject in context already calls storage.updateProject and loadProjects
+            updateProject(projectId, { projectManager: { id: pmId } as any });
+        } catch (err) {
+            console.error('Failed to assign PM', err);
+        }
+    };
+
+
 
     // Compute metrics for selected project or aggregate all
     const computeMetrics = (): ProjectMetrics & { projectName: string } => {
@@ -213,16 +288,17 @@ export default function AdminDashboard() {
         }
 
         // Aggregate across all projects
-        const allOutputs = projects.flatMap(p => p.outputs || []);
-        const totalTarget = allOutputs.reduce((s, o) => s + (o.target || 0), 0);
-        const totalActual = allOutputs.reduce((s, o) => s + (o.actual || 0), 0);
+        const allOutputs = (projects || []).flatMap(p => p?.outputs || []);
+        const totalTarget = allOutputs.reduce((s, o) => s + (o?.target || 0), 0);
+        const totalActual = allOutputs.reduce((s, o) => s + (o?.actual || 0), 0);
         const completionRate = totalTarget > 0 ? totalActual / totalTarget : 0;
 
         const byOperator: Record<string, { target: number; actual: number }> = {};
         allOutputs.forEach(o => {
+            if (!o || !o.name) return;
             if (!byOperator[o.name]) byOperator[o.name] = { target: 0, actual: 0 };
-            byOperator[o.name].target += o.target;
-            byOperator[o.name].actual += o.actual;
+            byOperator[o.name].target += (o.target || 0);
+            byOperator[o.name].actual += (o.actual || 0);
         });
 
         const operatorSummary = Object.entries(byOperator)
@@ -239,14 +315,14 @@ export default function AdminDashboard() {
         const monthStr = new Date(now.getTime() - 30 * 86400000).toISOString().split('T')[0];
 
         const weeklyByOp: Record<string, number> = {};
-        allOutputs.filter(o => o.date >= weekStr).forEach(o => {
-            weeklyByOp[o.name] = (weeklyByOp[o.name] || 0) + o.actual;
+        allOutputs.filter(o => o && o.name && o.date >= weekStr).forEach(o => {
+            weeklyByOp[o.name] = (weeklyByOp[o.name] || 0) + (o.actual || 0);
         });
         const topWeekly = Object.entries(weeklyByOp).sort((a, b) => b[1] - a[1])[0];
 
         const monthlyByOp: Record<string, number> = {};
-        allOutputs.filter(o => o.date >= monthStr).forEach(o => {
-            monthlyByOp[o.name] = (monthlyByOp[o.name] || 0) + o.actual;
+        allOutputs.filter(o => o && o.name && o.date >= monthStr).forEach(o => {
+            monthlyByOp[o.name] = (monthlyByOp[o.name] || 0) + (o.actual || 0);
         });
         const topMonthly = Object.entries(monthlyByOp).sort((a, b) => b[1] - a[1])[0];
 
@@ -262,6 +338,7 @@ export default function AdminDashboard() {
     };
 
     const metrics = computeMetrics();
+    if (!metrics) return null; // Defensive check
     const selectedLabel = activeProjectId
         ? projects.find(p => p.id === activeProjectId)?.name || 'Unknown'
         : 'All Projects';
@@ -307,7 +384,7 @@ export default function AdminDashboard() {
                                         {projects.map(p => (
                                             <button
                                                 key={p.id}
-                                                onClick={() => { setActiveProjectId(p.id); setFilterOpen(false); }}
+                                                onClick={() => scrollToProject(p.id)}
                                                 className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${activeProjectId === p.id ? 'bg-[var(--accent-primary)]/20 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-white/5'}`}
                                             >
                                                 <Folder className="w-4 h-4" />
@@ -321,6 +398,155 @@ export default function AdminDashboard() {
                         <UserSwitcher />
                     </div>
                 </div>
+
+                {/* ── Personnel & User Management ── */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4 }}
+                    className="mb-8 glass-card p-6 border-l-4 border-[var(--accent-primary)] shadow-2xl relative overflow-hidden"
+                >
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent-primary)]/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
+                    <div className="flex items-center justify-between mb-6 relative z-10">
+                        <div className="flex flex-col gap-1">
+                            <h2 className="text-xl font-bold text-[var(--accent-primary)] flex items-center gap-2.5">
+                                <Users className="w-6 h-6" />
+                                Project Manager Management
+                            </h2>
+                            <p className="text-sm text-[var(--text-muted)]">Register and manage accounts for Project Managers.</p>
+                        </div>
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-white
+                                bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)]
+                                hover:shadow-xl hover:shadow-[var(--accent-glow)] transition-all cursor-pointer hover:-translate-y-0.5"
+                        >
+                            <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
+                            Register New Personnel
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6 relative z-10">
+                        <div className="glass-card p-5 bg-white/5 border border-white/5 hover:border-[var(--metric-purple)]/30 transition-colors">
+                            <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-4">
+                                <h3 className="text-xs font-bold text-[var(--metric-purple)] uppercase tracking-wider flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--metric-purple)]" />
+                                    Project Managers
+                                </h3>
+                                <button
+                                    onClick={() => { setShowAddModal(true); setAddError(''); setEditUserId(null); setAddForm({ name: '', email: 'lifewood@ph.com', role: Role.PROJECT_MANAGER, manualPin: '', projectId: '', projectTitle: '' }); }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-white
+                                        bg-[var(--metric-purple)] hover:bg-[var(--accent-secondary)] transition-all cursor-pointer shadow-lg shadow-[var(--metric-purple)]/20"
+                                >
+                                    <Plus className="w-3 h-3" />
+                                    Register PM
+                                </button>
+                            </div>
+                            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                {users.filter(u => u.role === Role.PROJECT_MANAGER).map(u => {
+                                    const assignedProject = projects.find(p => String(p.projectManager?.id) === String(u.id));
+                                    return (
+                                        <div
+                                            key={u.id}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedPersonnelId(u.id);
+                                                if (assignedProject) {
+                                                    scrollToProject(String(assignedProject.id));
+                                                } else {
+                                                    setTimeout(() => {
+                                                        projectDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                    }, 100);
+                                                }
+                                            }}
+                                            className={`flex items-center gap-3 p-3 rounded-xl border transition-all group cursor-pointer ${activeProjectId === String(assignedProject?.id) || selectedPersonnelId === u.id ? 'bg-[var(--metric-purple)]/10 border-[var(--metric-purple)]/30 ring-2 ring-[var(--metric-purple)]/20' : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'}`}
+                                        >
+                                            <div className="w-10 h-10 rounded-xl bg-[var(--metric-purple)]/20 flex items-center justify-center shrink-0 border border-[var(--metric-purple)]/20 shadow-inner">
+                                                <span className="text-sm font-bold text-[var(--metric-purple)]">{u.name.charAt(0)}</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className="text-sm font-bold text-[var(--text-primary)] truncate">{u.name}</p>
+                                                    {assignedProject && (
+                                                        <span className="text-[10px] bg-[var(--metric-purple)]/10 text-[var(--metric-purple)] px-1.5 py-0.5 rounded-md font-bold truncate max-w-[100px]" title={`Assigned to ${assignedProject.name}`}>
+                                                            {assignedProject.name}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-[11px] text-[var(--text-muted)] truncate opacity-70">{u.email}</p>
+                                                    {u.pin && (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="w-1 h-1 rounded-full bg-white/20" />
+                                                            {revealedPins.has(u.id) ? (
+                                                                <span className="text-[10px] font-mono font-bold text-white bg-[var(--accent-primary)]/20 px-1.5 py-0.5 rounded border border-white/10 shadow-sm animate-in fade-in zoom-in duration-200">
+                                                                    {u.pin}
+                                                                </span>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); togglePin(u.id); }}
+                                                                    className="text-[10px] font-bold text-white/70 hover:text-white transition-colors flex items-center gap-1"
+                                                                >
+                                                                    <Eye className="w-3 h-3 text-white/70" />
+                                                                    Show PIN
+                                                                </button>
+                                                            )}
+                                                            {revealedPins.has(u.id) && (
+                                                                <button onClick={(e) => { e.stopPropagation(); togglePin(u.id); }} className="text-white/50 hover:text-white transition-colors">
+                                                                    <EyeOff className="w-3 h-3" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-2 shrink-0 ml-auto">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedPersonnelId(u.id);
+                                                        if (assignedProject) {
+                                                            scrollToProject(String(assignedProject.id));
+                                                        } else {
+                                                            setTimeout(() => {
+                                                                projectDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                            }, 100);
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-white/10 hover:bg-[var(--metric-purple)]/20 text-white/70 hover:text-[var(--metric-purple)] transition-all border border-white/5 hover:border-[var(--metric-purple)]/30"
+                                                >
+                                                    View Team
+                                                </button>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleEditUser(u); }}
+                                                        className="p-1 text-[var(--text-muted)] hover:text-[var(--accent-primary)] transition-all"
+                                                        title="Edit account"
+                                                    >
+                                                        <KeyRound className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(u.id); }}
+                                                        className="p-1 text-[var(--text-muted)] hover:text-[var(--metric-red)] transition-all"
+                                                        title="Remove account"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {users.filter(u => u.role === Role.PROJECT_MANAGER).length === 0 && (
+                                    <div className="flex flex-col items-center justify-center py-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+                                        <Users className="w-8 h-8 text-[var(--text-muted)] opacity-20 mb-2" />
+                                        <p className="text-xs text-[var(--text-muted)] italic">No Project Managers registered yet.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
 
                 {/* ── Metric Cards ── */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 stagger-children">
@@ -360,6 +586,58 @@ export default function AdminDashboard() {
                     />
                 </div>
 
+                {/* ── Project Portfolio ── */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between mb-5">
+                        <h2 className="text-xl font-bold text-[var(--accent-secondary)] flex items-center gap-2.5">
+                            <Target className="w-6 h-6" />
+                            Operations Oversight
+                        </h2>
+                        <div className="text-[10px] uppercase tracking-widest font-bold text-[var(--text-muted)] bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                            {projects.length} Active {projects.length === 1 ? 'Project' : 'Projects'}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
+                        {projects.map((p, idx) => (
+                            <motion.div
+                                key={p.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 + idx * 0.05 }}
+                                onClick={() => scrollToProject(String(p.id))}
+                                className={`glass-card p-5 cursor-pointer transition-all border group hover:-translate-y-1 ${activeProjectId === String(p.id) ? 'border-[var(--accent-secondary)] ring-2 ring-[var(--accent-secondary)]/20 shadow-xl' : 'hover:border-white/20'}`}
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 ${activeProjectId === String(p.id) ? 'bg-[var(--accent-secondary)]/20' : 'bg-white/5'}`}>
+                                        <Briefcase className={`w-5 h-5 ${activeProjectId === String(p.id) ? 'text-[var(--accent-secondary)]' : 'text-[var(--text-muted)]'}`} />
+                                    </div>
+                                    <ChevronRight className={`w-4 h-4 text-[var(--text-muted)] transition-transform group-hover:translate-x-1 ${activeProjectId === String(p.id) ? 'rotate-90 text-[var(--accent-secondary)]' : ''}`} />
+                                </div>
+                                <h3 className="text-base font-bold text-[var(--text-primary)] mb-1 truncate">{p.name}</h3>
+                                <p className="text-xs text-[var(--text-muted)] mb-4 line-clamp-1">{p.goal} {p.unit} target</p>
+
+                                <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                                    <div className="flex -space-x-2">
+                                        {(p.operators?.slice(0, 3) || []).map(op => (
+                                            <div key={op.id} className="w-6 h-6 rounded-full bg-[var(--metric-green)] border-2 border-[#0d1f17] flex items-center justify-center">
+                                                <span className="text-[8px] font-bold text-white">{op.name.charAt(0)}</span>
+                                            </div>
+                                        ))}
+                                        {(p.operators?.length || 0) > 3 && (
+                                            <div className="w-6 h-6 rounded-full bg-white/10 border-2 border-[#0d1f17] flex items-center justify-center">
+                                                <span className="text-[8px] font-bold text-white">+{p.operators!.length - 3}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <span className="text-[10px] font-bold text-[var(--text-muted)]">
+                                        PM: {p.projectManager?.name || 'Unassigned'}
+                                    </span>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+
                 {/* ── Top Performers & Operator Table ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -372,7 +650,7 @@ export default function AdminDashboard() {
                     >
                         <h2 className="text-base font-semibold text-[var(--text-primary)] mb-5 flex items-center gap-2">
                             <Award className="w-5 h-5 text-[var(--metric-amber)]" />
-                            Top Performers
+                            {activeProjectId ? 'Project Leaders' : 'Top Performers'}
                         </h2>
 
                         {metrics.topPerformerWeekly && (
@@ -409,7 +687,7 @@ export default function AdminDashboard() {
                     >
                         <h2 className="text-base font-semibold text-[var(--text-primary)] mb-5 flex items-center gap-2">
                             <Users className="w-5 h-5 text-[var(--metric-blue)]" />
-                            Operator Leaderboard
+                            {activeProjectId ? 'Personnel Breakdown' : 'Operator Leaderboard'}
                         </h2>
 
                         {metrics.operatorSummary.length > 0 ? (
@@ -431,144 +709,106 @@ export default function AdminDashboard() {
                     </motion.div>
                 </div>
 
-                {/* ── Projects Overview (when "All Projects" selected) ── */}
-                {!activeProjectId && projects.length > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.35, duration: 0.4 }}
-                        className="mt-6 glass-card p-6"
-                    >
-                        <h2 className="text-base font-semibold text-[var(--text-primary)] mb-5 flex items-center gap-2">
-                            <Folder className="w-5 h-5 text-[var(--metric-purple)]" />
-                            Projects Overview
-                        </h2>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {projects.map((p) => {
-                                const pm = getProjectMetrics(p.id);
-                                return (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => setActiveProjectId(p.id)}
-                                        className="glass-card glass-card-hover p-4 text-left cursor-pointer"
-                                    >
-                                        <p className="text-sm font-semibold text-[var(--text-primary)] mb-1 truncate">{p.name}</p>
-                                        <p className="text-xs text-[var(--text-muted)] mb-3">{p.resources.length} operators · {p.unit}</p>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                                <div
-                                                    className="h-full rounded-full bg-[var(--accent-secondary)] transition-all duration-700"
-                                                    style={{ width: `${Math.min(pm.completionRate * 100, 100)}%` }}
-                                                />
-                                            </div>
-                                            <span className="text-xs font-medium text-[var(--text-secondary)]">
-                                                {(pm.completionRate * 100).toFixed(0)}%
-                                            </span>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </motion.div>
-                )}
-
-                {/* ── Operator Accounts ── */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4, duration: 0.4 }}
-                    className="mt-6 glass-card p-6"
-                >
-                    <div className="flex items-center justify-between mb-5">
-                        <h2 className="text-base font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                            <KeyRound className="w-5 h-5 text-[var(--metric-amber)]" />
-                            Operator Accounts
-                        </h2>
-                        <button
-                            onClick={() => setShowAddModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white
-                                bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)]
-                                hover:shadow-lg hover:shadow-[var(--accent-glow)] transition-all cursor-pointer"
+                {/* ── Project Assignments (when a project or personnel is selected) ── */}
+                {
+                    (activeProjectId || selectedPersonnelId) && (
+                        <motion.div
+                            ref={projectDetailRef}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.35, duration: 0.4 }}
+                            className="mt-6 glass-card p-6 border-2 border-[var(--metric-purple)]/20"
                         >
-                            <Plus className="w-3.5 h-3.5" />
-                            Add Operator
-                        </button>
-                    </div>
+                            <div className="flex items-center justify-between mb-5">
+                                <h2 className="text-base font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                                    <Target className="w-5 h-5 text-[var(--metric-purple)]" />
+                                    {activeProjectId
+                                        ? `Project Detail: ${projects.find(p => p.id === activeProjectId)?.name}`
+                                        : `Manager Selection: ${users.find(u => u.id === selectedPersonnelId)?.name}`
+                                    }
+                                </h2>
+                            </div>
 
-                    {/* Portal Link */}
-                    <div className="glass-card p-4 mb-5 flex items-center gap-3 flex-wrap">
-                        <LinkIcon className="w-4 h-4 text-[var(--accent-secondary)] shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs text-[var(--text-muted)] mb-0.5">Shareable Portal Link</p>
-                            <p className="text-sm text-[var(--text-primary)] font-mono truncate">{portalUrl}</p>
-                        </div>
-                        <button
-                            onClick={copyPortalLink}
-                            className="glass-card px-3 py-1.5 text-xs font-medium hover:bg-white/10 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
-                        >
-                            {linkCopied ? (
-                                <><Check className="w-3.5 h-3.5 text-[var(--metric-green)]" /> Copied</>
-                            ) : (
-                                'Copy Link'
-                            )}
-                        </button>
-                    </div>
+                            {!activeProjectId && selectedPersonnelId && (
+                                <div className="flex flex-col items-center justify-center py-10 bg-white/5 rounded-2xl border border-dashed border-white/10">
+                                    <Activity className="w-12 h-12 text-[var(--text-muted)] mb-4 opacity-20" />
+                                    <p className="text-sm text-[var(--text-primary)] font-bold mb-2">Personnel Selected: {users.find(u => u.id === selectedPersonnelId)?.name}</p>
+                                    <p className="text-xs text-[var(--text-muted)] mb-6">This user is not currently assigned to an active project.</p>
 
-                    {/* Operator List */}
-                    {operators.length === 0 ? (
-                        <p className="text-sm text-[var(--text-muted)] text-center py-6">
-                            No operator accounts yet. Add one to get started.
-                        </p>
-                    ) : (
-                        <div className="space-y-0">
-                            {operators.map(op => (
-                                <div key={op.id} className="flex items-center gap-4 py-3 border-b border-white/5 last:border-0">
-                                    <div className="w-8 h-8 rounded-lg bg-[var(--metric-green)]/10 flex items-center justify-center shrink-0">
-                                        <span className="text-xs font-bold text-[var(--metric-green)]">
-                                            {op.name.charAt(0).toUpperCase()}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-[var(--text-primary)] truncate">{op.name}</p>
-                                        <p className="text-xs text-[var(--text-muted)] truncate">{op.email}</p>
-                                    </div>
-                                    <p className="text-[10px] text-[var(--text-muted)] hidden sm:block">
-                                        {new Date(op.createdAt).toLocaleDateString()}
-                                    </p>
-                                    {deleteConfirmId === op.id ? (
-                                        <div className="flex items-center gap-1">
-                                            <button
-                                                onClick={() => handleDeleteOperator(op.id)}
-                                                className="p-1.5 rounded-lg bg-[var(--metric-red)]/15 hover:bg-[var(--metric-red)]/25 transition-colors cursor-pointer"
-                                                title="Confirm delete"
-                                            >
-                                                <Check className="w-3.5 h-3.5 text-[var(--metric-red)]" />
-                                            </button>
-                                            <button
-                                                onClick={() => setDeleteConfirmId(null)}
-                                                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                                                title="Cancel"
-                                            >
-                                                <X className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => setDeleteConfirmId(op.id)}
-                                            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                                            title="Delete operator"
+                                    <div className="w-full max-w-sm px-6">
+                                        <h4 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-3 text-center">Assign PM to Project</h4>
+                                        <select
+                                            className="glass-input w-full px-4 py-3 text-sm bg-transparent mb-4"
+                                            onChange={(e) => {
+                                                handleAssignPM(e.target.value, selectedPersonnelId);
+                                            }}
+                                            value=""
                                         >
-                                            <Trash2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                                        </button>
-                                    )}
+                                            <option value="" disabled className="bg-[#0d1f17]">Select target project...</option>
+                                            {projects.map(p => (
+                                                <option key={p.id} value={p.id} className="bg-[#0d1f17]">{p.name}</option>
+                                            ))}
+                                        </select>
+                                        <p className="text-[10px] text-center text-[var(--text-muted)] italic">Note: Only Project Managers can be assigned to projects by an Admin.</p>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </motion.div>
+                            )}
 
-                {/* ── Add Operator Modal ── */}
+                            {activeProjectId && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* Project Manager Assignment */}
+                                    <div>
+                                        <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Project Manager</h3>
+                                        <div className="flex flex-col gap-3">
+                                            <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-[var(--metric-purple)]/10 flex items-center justify-center">
+                                                        <Activity className="w-4 h-4 text-[var(--metric-purple)]" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-[var(--text-primary)]">
+                                                            {projects.find(p => p.id === activeProjectId)?.projectManager?.name || 'Unassigned'}
+                                                        </p>
+                                                        <p className="text-[10px] text-[var(--text-muted)]">Current Manager</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <select
+                                                className="glass-input w-full px-3 py-2 text-sm bg-transparent"
+                                                onChange={(e) => handleAssignPM(activeProjectId, e.target.value)}
+                                                value={projects.find(p => p.id === activeProjectId)?.projectManager?.id || ''}
+                                            >
+                                                <option value="" disabled className="bg-[#0d1f17]">Change Project Manager...</option>
+                                                {users.filter(u => u.role === Role.PROJECT_MANAGER).map(pm => (
+                                                    <option key={pm.id} value={pm.id} className="bg-[#0d1f17]">{pm.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Assigned Operators (Read-only Oversight) */}
+                                    <div>
+                                        <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Project Team (Oversight)</h3>
+                                        <div className="space-y-2">
+                                            {projects.find(p => p.id === activeProjectId)?.operators?.map(op => (
+                                                <div key={op.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+                                                    <span className="text-sm text-[var(--text-primary)] font-medium">{op.name}</span>
+                                                    <span className="text-[10px] text-[var(--accent-primary)] font-bold italic opacity-60">managed by PM</span>
+                                                </div>
+                                            ))}
+                                            {(projects.find(p => p.id === activeProjectId)?.operators?.length || 0) === 0 && (
+                                                <p className="text-xs text-[var(--text-muted)] italic py-2">No operators assigned by PM yet.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </motion.div>
+                    )
+                }
+
+
+                {/* ── Register Account Modal ── */}
                 <AnimatePresence>
                     {showAddModal && (
                         <div className="fixed inset-0 z-[200] flex items-center justify-center">
@@ -587,9 +827,11 @@ export default function AdminDashboard() {
                                 style={{ background: 'rgba(13, 31, 23, 0.97)' }}
                             >
                                 <div className="flex items-center justify-between mb-5">
-                                    <h3 className="text-base font-semibold text-[var(--text-primary)]">Add Operator</h3>
+                                    <h3 className="text-base font-semibold text-[var(--text-primary)]">
+                                        {editUserId ? 'Edit Account Details' : 'Register New Account'}
+                                    </h3>
                                     <button
-                                        onClick={() => { setShowAddModal(false); setAddError(''); }}
+                                        onClick={() => { setShowAddModal(false); setAddError(''); setEditUserId(null); }}
                                         className="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                                     >
                                         <X className="w-4 h-4 text-[var(--text-muted)]" />
@@ -628,7 +870,51 @@ export default function AdminDashboard() {
                                                     type="email"
                                                     value={addForm.email}
                                                     onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))}
-                                                    placeholder="operator@company.com"
+                                                    placeholder="personnel@company.com"
+                                                    className="glass-input w-full px-3 py-2.5 text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">Role</label>
+                                                <select
+                                                    value={addForm.role}
+                                                    onChange={e => setAddForm(f => ({ ...f, role: e.target.value as Role }))}
+                                                    className="glass-input w-full px-3 py-2.5 text-sm bg-transparent"
+                                                >
+                                                    <option value={Role.PROJECT_MANAGER} className="bg-[#0d1f17]">Project Manager</option>
+                                                </select>
+                                                <p className="text-[10px] text-[var(--text-muted)] mt-1 pl-1 italic">
+                                                    Note: Operators must be created and managed by their respective Project Managers.
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">Project Assignment</label>
+                                                <div className="relative">
+                                                    <input
+                                                        list="projects-list"
+                                                        value={addForm.projectTitle}
+                                                        onChange={e => setAddForm(f => ({ ...f, projectTitle: e.target.value }))}
+                                                        placeholder="Type project title or select existing"
+                                                        className="glass-input w-full px-3 py-2.5 text-sm"
+                                                    />
+                                                    <datalist id="projects-list">
+                                                        {projects.map(p => (
+                                                            <option key={p.id} value={p.name} />
+                                                        ))}
+                                                    </datalist>
+                                                </div>
+                                                <p className="text-[10px] text-[var(--text-muted)] mt-1 pl-1 italic">Type a new project name to create it or select from existing ones.</p>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-medium text-[var(--text-secondary)] pl-1 mb-1 block">
+                                                    {editUserId ? 'Update PIN' : 'Custom PIN (Optional)'}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={addForm.manualPin}
+                                                    onChange={e => setAddForm(f => ({ ...f, manualPin: e.target.value }))}
+                                                    placeholder={editUserId ? "Leave unchanged to keep current PIN" : "Auto-generate if empty"}
+                                                    maxLength={6}
                                                     className="glass-input w-full px-3 py-2.5 text-sm"
                                                 />
                                             </div>
@@ -648,20 +934,20 @@ export default function AdminDashboard() {
                                     ) : (
                                         <>
                                             <button
-                                                onClick={() => { setShowAddModal(false); setAddError(''); }}
+                                                onClick={() => { setShowAddModal(false); setAddError(''); setEditUserId(null); }}
                                                 className="glass-card px-4 py-2 text-sm font-medium hover:bg-white/10 transition-colors cursor-pointer"
                                             >
                                                 Cancel
                                             </button>
                                             <button
-                                                onClick={handleAddOperator}
+                                                onClick={handleAddUser}
                                                 disabled={addSubmitting}
                                                 className="px-4 py-2 rounded-xl text-sm font-semibold text-white
                                                     bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)]
                                                     hover:shadow-lg hover:shadow-[var(--accent-glow)] transition-all
                                                     disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             >
-                                                {addSubmitting ? 'Saving...' : 'Add Operator'}
+                                                {addSubmitting ? 'Saving...' : editUserId ? 'Update Account' : 'Add Account'}
                                             </button>
                                         </>
                                     )}

@@ -1,32 +1,53 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 
+interface AuthSession {
+    email: string;
+    pin: string;
+}
+
 interface AuthContextType {
     isSignedIn: boolean;
-    googleToken: string | null;
-    login: () => void;
+    authSession: AuthSession | null;
+    login: (session: AuthSession) => void;
     logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const AUTH_KEY = 'prodplan-auth';
+const SESSION_KEY = 'admin-session';
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [isSignedIn, setIsSignedIn] = useState<boolean>(() => {
-        return localStorage.getItem('prodplan-auth') === 'true';
+        return localStorage.getItem(AUTH_KEY) === 'true';
     });
 
-    const login = () => {
+    const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
+        const stored = sessionStorage.getItem(SESSION_KEY);
+        try {
+            return stored ? JSON.parse(stored) : null;
+        } catch (e) {
+            return null;
+        }
+    });
+
+    const login = (session: AuthSession) => {
         setIsSignedIn(true);
-        localStorage.setItem('prodplan-auth', 'true');
+        setAuthSession(session);
+        localStorage.setItem(AUTH_KEY, 'true');
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
     };
 
     const logout = () => {
         setIsSignedIn(false);
-        localStorage.removeItem('prodplan-auth');
+        setAuthSession(null);
+        localStorage.removeItem(AUTH_KEY);
+        sessionStorage.removeItem(SESSION_KEY);
     };
 
     const value: AuthContextType = {
         isSignedIn,
-        googleToken: null,
+        authSession,
         login,
         logout,
     };

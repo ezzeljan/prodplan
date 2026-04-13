@@ -86,24 +86,27 @@ export default function ProjectsPage() {
     };
 
     const filtered = useMemo(() => {
-        let list = [...projects];
+        let list = [...(projects || [])];
 
         if (filter !== 'all') {
-            list = list.filter(p => p.status === filter);
+            list = list.filter(p => p && p.status === filter);
         }
 
         if (search.trim()) {
             const q = search.toLowerCase();
             list = list.filter(p =>
-                p.name.toLowerCase().includes(q) ||
-                (p.overview || '').toLowerCase().includes(q)
+                p && (
+                    (p.name || '').toLowerCase().includes(q) ||
+                    (p.overview || '').toLowerCase().includes(q)
+                )
             );
         }
 
         list.sort((a, b) => {
-            if (sortBy === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            if (sortBy === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-            return a.name.localeCompare(b.name);
+            if (!a || !b) return 0;
+            if (sortBy === 'newest') return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+            if (sortBy === 'oldest') return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+            return (a.name || '').localeCompare(b.name || '');
         });
 
         return list;
@@ -116,8 +119,9 @@ export default function ProjectsPage() {
 
     const formatDate = (dateStr: string) => {
         try {
+            if (!dateStr) return 'N/A';
             return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        } catch { return dateStr; }
+        } catch { return dateStr || 'N/A'; }
     };
 
     const getStatusColor = (status: string) => {
@@ -130,18 +134,22 @@ export default function ProjectsPage() {
     };
 
     const getDaysRemaining = (endDate: string) => {
+        if (!endDate) return 0;
         const end = new Date(endDate);
         const now = new Date();
         const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         return diff;
     };
 
-    const filterCounts = useMemo(() => ({
-        all: projects.length,
-        active: projects.filter(p => p.status === 'active').length,
-        completed: projects.filter(p => p.status === 'completed').length,
-        archived: projects.filter(p => p.status === 'archived').length,
-    }), [projects]);
+    const filterCounts = useMemo(() => {
+        const pList = projects || [];
+        return {
+            all: pList.length,
+            active: pList.filter(p => p && p.status === 'active').length,
+            completed: pList.filter(p => p && p.status === 'completed').length,
+            archived: pList.filter(p => p && p.status === 'archived').length,
+        };
+    }, [projects]);
 
     return (
         <div className="h-full overflow-y-auto custom-scrollbar gradient-bg transition-colors duration-300">
@@ -199,16 +207,14 @@ export default function ProjectsPage() {
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                                filter === f
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${filter === f
                                     ? 'bg-[var(--accent-primary)] text-white shadow-md'
                                     : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
-                            }`}
+                                }`}
                         >
                             <span className="capitalize">{f}</span>
-                            <span className={`text-xs px-1.5 py-0.5 rounded-md ${
-                                filter === f ? 'bg-white/20' : 'bg-white/5'
-                            }`}>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-md ${filter === f ? 'bg-white/20' : 'bg-white/5'
+                                }`}>
                                 {filterCounts[f]}
                             </span>
                         </button>
@@ -379,9 +385,8 @@ export default function ProjectsPage() {
                                                 {formatDate(project.createdAt)}
                                             </span>
                                             {project.status === 'active' && (
-                                                <span className={`text-[10px] font-medium ${
-                                                    daysLeft < 0 ? 'text-red-400' : daysLeft <= 7 ? 'text-amber-400' : 'text-[var(--text-muted)]'
-                                                }`}>
+                                                <span className={`text-[10px] font-medium ${daysLeft < 0 ? 'text-red-400' : daysLeft <= 7 ? 'text-amber-400' : 'text-[var(--text-muted)]'
+                                                    }`}>
                                                     {daysLeft < 0
                                                         ? `${Math.abs(daysLeft)}d overdue`
                                                         : daysLeft === 0
@@ -410,11 +415,10 @@ export default function ProjectsPage() {
                                     <button
                                         key={p}
                                         onClick={() => setPage(p)}
-                                        className={`w-9 h-9 text-sm rounded-xl transition-all ${
-                                            page === p
+                                        className={`w-9 h-9 text-sm rounded-xl transition-all ${page === p
                                                 ? 'bg-[var(--accent-primary)] text-white shadow-md'
                                                 : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
-                                        }`}
+                                            }`}
                                     >
                                         {p}
                                     </button>

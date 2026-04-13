@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useUser } from './UserContext';
 import { storage } from '../utils/storageProvider';
 import { UnifiedProject } from '../utils/projectStorage';
 import type { SpreadsheetData } from '../types/spreadsheet';
+import { User, Role as UserRole } from '../types/auth';
 
 // ─── Types ───
 export interface OperatorOutput {
@@ -18,6 +20,8 @@ export interface Project {
     unit: string;
     startDate: string;
     endDate: string;
+    projectManager?: User;
+    operators?: User[];
     resources: string[];
     overview?: string;
     createdAt: string;
@@ -123,20 +127,28 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
+    const { currentUser } = useUser();
+
     const loadProjects = useCallback(async () => {
         try {
-            const all = await storage.getAllProjects();
+            let all;
+            if (currentUser.role === UserRole.ADMIN) {
+                all = await storage.getAllProjects();
+            } else if (currentUser.role === UserRole.PROJECT_MANAGER) {
+                all = await storage.getAllProjects(currentUser.id);
+            } else {
+                all = await storage.getAllProjects(undefined, currentUser.id);
+            }
+
             if (all && all.length > 0) {
-                // UnifiedProject is structurally a superset of Project — safe cast
                 setProjects(all as Project[]);
             } else {
                 setProjects(generateDemoProjects());
             }
         } catch (err) {
             console.error('Failed to load projects from storage:', err);
-            setProjects(generateDemoProjects());
         }
-    }, []);
+    }, [currentUser]);
 
     useEffect(() => {
         loadProjects();

@@ -14,7 +14,7 @@ const GROUP_CELL_BG = 'FFD6DCE4';
 function formatCellValueForExcel(
   value: unknown,
   col: TableColumnDef
-): string | number | null {
+): string | number | Date | null {
   if (value === null || value === undefined) return null;
   if (value === '–' || value === '-') return value as string;
   if (col.type === 'percent' && typeof value === 'number') {
@@ -25,7 +25,7 @@ function formatCellValueForExcel(
     if (!isNaN(d.getTime())) return d;
     return value;
   }
-  return value as string | number;
+  return value as string | number | Date;
 }
 
 function applyCellStyle(
@@ -39,7 +39,7 @@ function applyCellStyle(
       ? 'right'
       : 'left');
   cell.alignment = {
-    horizontal: alignment as ExcelJS.ExcelAlignment,
+    horizontal: alignment as ExcelJS.Alignment['horizontal'],
     vertical: 'middle',
     wrapText: true,
   };
@@ -62,7 +62,11 @@ function applyCellStyle(
     (col.type === 'number' ||
       col.type === 'integer' ||
       col.type === 'percent');
-  const font: ExcelJS.Font = { ...((cell.font as ExcelJS.Font) || {}), bold: isBold };
+  const font: Partial<ExcelJS.Font> = {
+    ...((cell.font as ExcelJS.Font) || {}),
+    bold: isBold,
+    name: (cell.font as any)?.name || 'Calibri'
+  };
   if (typeof value === 'number' && col.type === 'percent') {
     if (col.completionGreen && value >= 1) {
       font.color = { argb: COMPLETION_GREEN };
@@ -79,7 +83,7 @@ function applyCellStyle(
   ) {
     font.color = { argb: NEGATIVE_FONT };
   }
-  cell.font = font;
+  cell.font = font as ExcelJS.Font;
 }
 
 /** Build header structure for Excel: row1 has groups (colSpan) or single (rowSpan 2), row2 has sub-headers */
@@ -246,7 +250,7 @@ export async function writeTablesToWorkbook(
           }
           if (c !== groupByColIndex) {
             cell.alignment = {
-              horizontal: (col.align as ExcelJS.ExcelAlignment) || (col.type === 'number' || col.type === 'integer' || col.type === 'percent' ? 'right' : 'left'),
+              horizontal: (col.align as ExcelJS.Alignment['horizontal']) || (col.type === 'number' || col.type === 'integer' || col.type === 'percent' ? 'right' : 'left'),
               vertical: 'middle',
             };
           }
@@ -270,7 +274,7 @@ export async function writeTablesToWorkbook(
             cell.value = value;
             applyCellStyle(cell, raw, col);
             cell.alignment = {
-              horizontal: (col.align as ExcelJS.ExcelAlignment) || (col.type === 'number' || col.type === 'integer' || col.type === 'percent' ? 'right' : 'left'),
+              horizontal: (col.align as ExcelJS.Alignment['horizontal']) || (col.type === 'number' || col.type === 'integer' || col.type === 'percent' ? 'right' : 'left'),
               vertical: 'middle',
             };
             cell.border = {

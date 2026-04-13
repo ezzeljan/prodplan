@@ -1,84 +1,235 @@
-import {
-    UnifiedProject,
-    saveProject as idbSave,
-    getProject as idbGet,
-    getAllProjects as idbGetAll,
-    deleteProjectFromDB as idbDelete,
-    updateProject as idbUpdate,
-} from './projectStorage';
+import { UnifiedProject } from './projectStorage';
+import { User, Role } from '../types/auth';
 
-import {
-    Operator,
-    saveOperator as idbSaveOp,
-    getOperatorByEmail as idbGetOpByEmail,
-    getOperatorById as idbGetOpById,
-    getAllOperators as idbGetAllOps,
-    deleteOperator as idbDeleteOp,
-    updateOperator as idbUpdateOp,
-} from './operatorStorage';
+const API_URL = 'http://localhost:8080/api';
 
 export interface StorageProvider {
     // Projects
-    saveProject(project: UnifiedProject): Promise<void>;
+    saveProject(project: UnifiedProject, adminEmail?: string, adminPin?: string): Promise<void>;
     getProject(id: string): Promise<UnifiedProject | undefined>;
-    getAllProjects(): Promise<UnifiedProject[]>;
-    deleteProject(id: string): Promise<void>;
+    getAllProjects(pmId?: string, operatorId?: string): Promise<UnifiedProject[]>;
+    deleteProject(id: string, adminEmail?: string, adminPin?: string): Promise<void>;
     updateProject(id: string, updates: Partial<UnifiedProject>): Promise<void>;
 
-    // Operators
-    saveOperator(operator: Operator): Promise<void>;
-    getOperatorByEmail(email: string): Promise<Operator | undefined>;
-    getOperatorById(id: string): Promise<Operator | undefined>;
-    getAllOperators(): Promise<Operator[]>;
-    deleteOperator(id: string): Promise<void>;
-    updateOperator(id: string, updates: Partial<Omit<Operator, 'id'>>): Promise<void>;
+    // Users
+    saveUser(user: Omit<User, 'id'> & { manualPin?: string; projectId?: string; projectTitle?: string }, adminEmail: string, adminPin: string): Promise<User>;
+    updateUser(id: string, updates: Partial<User & { manualPin?: string }>, adminEmail: string, adminPin: string): Promise<User>;
+    getUserByEmail(email: string): Promise<User | undefined>;
+    getUserById(id: string): Promise<User | undefined>;
+    getAllUsers(): Promise<User[]>;
+    deleteUser(id: string, adminEmail: string, adminPin: string): Promise<void>;
+    getOperatorById(id: string): Promise<User | undefined>;
+
+    // Remote Assignments
+    assignOperator(projectId: string, operatorId: string, adminEmail: string, adminPin: string): Promise<void>;
+    removeOperator(projectId: string, operatorId: string, adminEmail: string, adminPin: string): Promise<void>;
+}
+
+class BackendProvider implements StorageProvider {
+    private getAdminParams(email: string, pin: string) {
+        return `adminEmail=${encodeURIComponent(email)}&adminPin=${encodeURIComponent(pin)}`;
+    }
+
+    async saveProject(project: UnifiedProject, adminEmail?: string, adminPin?: string): Promise<void> {
+        const response = await fetch(`${API_URL}/projects?${this.getAdminParams(adminEmail || '', adminPin || '')}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: project.name,
+                description: project.overview || '',
+                projectManagerId: project.projectManager?.id,
+                adminEmail,
+                adminPin
+            })
+        });
+        if (!response.ok) throw new Error('Failed to save project');
+    }
+
+    async getProject(id: string): Promise<UnifiedProject | undefined> {
+        const response = await fetch(`${API_URL}/projects/${id}`);
+        if (!response.ok) return undefined;
+        return response.json();
+    }
+
+    async getAllProjects(pmId?: string, operatorId?: string): Promise<UnifiedProject[]> {
+        let url = `${API_URL}/projects`;
+        const params = new URLSearchParams();
+        if (pmId) params.append('projectManagerId', pmId);
+        if (operatorId) params.append('operatorId', operatorId);
+        if (params.toString()) url += `?${params.toString()}`;
+
+        const response = await fetch(url);
+        if (!response.ok) return [];
+        return response.json();
+    }
+
+    async deleteProject(id: string, adminEmail?: string, adminPin?: string): Promise<void> {
+        const response = await fetch(`${API_URL}/projects/${id}?${this.getAdminParams(adminEmail || '', adminPin || '')}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete project');
+    }
+
+    async updateProject(id: string, updates: Partial<UnifiedProject>): Promise<void> {
+        const adminSession = sessionStorage.getItem('admin-session');
+        const body = { ...updates } as any;
+        if (adminSession) {
+            const { email, pin } = JSON.parse(adminSession);
+            body.adminEmail = email;
+            body.adminPin = pin;
+        }
+
+        // Handle projectManager nested object mapping to ID for backend
+        if (updates.projectManager && typeof updates.projectManager === 'object') {
+            body.projectManagerId = (updates.projectManager as any).id;
+        }
+
+        const response = await fetch(`${API_URL}/projects/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error('Failed to update project');
+    }
+
+    async saveUser(user: Omit<User, 'id'> & { manualPin?: string; projectId?: string; projectTitle?: string }, adminEmail: string, adminPin: string): Promise<User> {
+        const response = await fetch(`${API_URL}/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...user, adminEmail, adminPin })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to save user');
+        return data.user;
+    }
+
+    async updateUser(id: string, updates: Partial<User & { manualPin?: string }>, adminEmail: string, adminPin: string): Promise<User> {
+        const body = {
+            ...updates,
+            pin: updates.manualPin, // Map manualPin to pin for the update endpoint if present
+            adminEmail,
+            adminPin
+        };
+        const response = await fetch(`${API_URL}/users/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to update user');
+        return data.user;
+    }
+
+    async login(email: string, pin: string): Promise<{ user: User; message: string }> {
+        const response = await fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, pin })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Login failed');
+        return data;
+    }
+
+    async getUserByEmail(email: string): Promise<User | undefined> {
+        const users = await this.getAllUsers();
+        return users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    }
+
+    async getUserById(id: string): Promise<User | undefined> {
+        const response = await fetch(`${API_URL}/users/${id}`);
+        if (!response.ok) return undefined;
+        return response.json();
+    }
+
+    async getAllUsers(): Promise<User[]> {
+        const response = await fetch(`${API_URL}/users`);
+        if (!response.ok) return [];
+        return response.json();
+    }
+
+    async deleteUser(id: string, adminEmail: string, adminPin: string): Promise<void> {
+        const response = await fetch(`${API_URL}/users/${id}?${this.getAdminParams(adminEmail, adminPin)}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete user');
+    }
+
+    async getOperatorById(id: string): Promise<User | undefined> {
+        return this.getUserById(id);
+    }
+
+    async assignOperator(projectId: string, operatorId: string, adminEmail: string, adminPin: string): Promise<void> {
+        const response = await fetch(`${API_URL}/projects/${projectId}/operators/${operatorId}?${this.getAdminParams(adminEmail, adminPin)}`, {
+            method: 'POST'
+        });
+        if (!response.ok) throw new Error('Failed to assign operator');
+    }
+
+    async removeOperator(projectId: string, operatorId: string, adminEmail: string, adminPin: string): Promise<void> {
+        const response = await fetch(`${API_URL}/projects/${projectId}/operators/${operatorId}?${this.getAdminParams(adminEmail, adminPin)}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to remove operator');
+    }
 }
 
 class IndexedDBProvider implements StorageProvider {
     async saveProject(project: UnifiedProject): Promise<void> {
-        return idbSave(project);
+        return Promise.resolve(); // Placeholder, we use BackendProvider now
     }
 
     async getProject(id: string): Promise<UnifiedProject | undefined> {
-        return idbGet(id);
+        return undefined;
     }
 
     async getAllProjects(): Promise<UnifiedProject[]> {
-        return idbGetAll();
+        return [];
     }
 
     async deleteProject(id: string): Promise<void> {
-        return idbDelete(id);
+        return Promise.resolve();
     }
 
     async updateProject(id: string, updates: Partial<UnifiedProject>): Promise<void> {
-        return idbUpdate(id, updates);
+        return Promise.resolve();
     }
 
-    async saveOperator(operator: Operator): Promise<void> {
-        return idbSaveOp(operator);
+    async saveUser(user: Omit<User, 'id'>): Promise<User> {
+        return {} as User;
     }
 
-    async getOperatorByEmail(email: string): Promise<Operator | undefined> {
-        return idbGetOpByEmail(email);
+    async updateUser(id: string, updates: Partial<User>): Promise<User> {
+        return {} as User;
     }
 
-    async getOperatorById(id: string): Promise<Operator | undefined> {
-        return idbGetOpById(id);
+    async getUserByEmail(email: string): Promise<User | undefined> {
+        return undefined;
     }
 
-    async getAllOperators(): Promise<Operator[]> {
-        return idbGetAllOps();
+    async getUserById(id: string): Promise<User | undefined> {
+        return undefined;
     }
 
-    async deleteOperator(id: string): Promise<void> {
-        return idbDeleteOp(id);
+    async getAllUsers(): Promise<User[]> {
+        return [];
     }
 
-    async updateOperator(id: string, updates: Partial<Omit<Operator, 'id'>>): Promise<void> {
-        return idbUpdateOp(id, updates);
+    async deleteUser(id: string): Promise<void> {
+        return Promise.resolve();
+    }
+
+    async getOperatorById(id: string): Promise<User | undefined> {
+        return Promise.resolve(undefined);
+    }
+
+    async assignOperator(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    async removeOperator(): Promise<void> {
+        return Promise.resolve();
     }
 }
 
-// ─── Swap this to a SupabaseProvider when ready ───
-export const storage: StorageProvider = new IndexedDBProvider();
+export const storage: StorageProvider = new BackendProvider();

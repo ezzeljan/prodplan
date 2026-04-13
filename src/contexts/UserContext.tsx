@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-// ─── Types ───
-export type UserRole = 'admin' | 'manager' | 'teamlead' | 'operator';
+import { Role as UserRole } from '../types/auth';
 
 export interface AppUser {
     id: string;
@@ -23,16 +22,16 @@ interface UserContextType {
     canViewAll: boolean;
 }
 
-// Demo users (will be replaced by real auth later)
+// Demo users
 const DEMO_USERS: AppUser[] = [
-    { id: 'admin-1', name: 'Admin User', email: 'admin@lifewood.ph', role: 'admin' },
-    { id: 'mgr-1', name: 'Project Manager', email: 'manager@lifewood.ph', role: 'manager' },
-    { id: 'tl-1', name: 'Team Lead', email: 'teamlead@lifewood.ph', role: 'teamlead' },
-    { id: 'op-1', name: 'Maria Santos', email: 'maria@lifewood.ph', role: 'operator' },
-    { id: 'op-2', name: 'John Reyes', email: 'john@lifewood.ph', role: 'operator' },
-    { id: 'op-3', name: 'Ana Garcia', email: 'ana@lifewood.ph', role: 'operator' },
-    { id: 'op-4', name: 'Carlos Cruz', email: 'carlos@lifewood.ph', role: 'operator' },
-    { id: 'op-5', name: 'Sofia Mendez', email: 'sofia@lifewood.ph', role: 'operator' },
+    { id: 'admin-1', name: 'Admin User', email: 'admin@lifewood.ph', role: UserRole.ADMIN },
+    { id: 'mgr-1', name: 'Project Manager', email: 'manager@lifewood.ph', role: UserRole.PROJECT_MANAGER },
+    { id: 'tl-1', name: 'Team Lead', email: 'teamlead@lifewood.ph', role: UserRole.TEAM_LEAD },
+    { id: 'op-1', name: 'Maria Santos', email: 'maria@lifewood.ph', role: UserRole.OPERATOR },
+    { id: 'op-2', name: 'John Reyes', email: 'john@lifewood.ph', role: UserRole.OPERATOR },
+    { id: 'op-3', name: 'Ana Garcia', email: 'ana@lifewood.ph', role: UserRole.OPERATOR },
+    { id: 'op-4', name: 'Carlos Cruz', email: 'carlos@lifewood.ph', role: UserRole.OPERATOR },
+    { id: 'op-5', name: 'Sofia Mendez', email: 'sofia@lifewood.ph', role: UserRole.OPERATOR },
 ];
 
 const STORAGE_KEY = 'production-plan-current-user';
@@ -51,10 +50,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem(STORAGE_KEY, userId);
     };
 
-    const isAdmin = currentUser.role === 'admin';
-    const isManager = currentUser.role === 'manager';
-    const isTeamLead = currentUser.role === 'teamlead';
-    const isOperator = currentUser.role === 'operator';
+    const isAdmin = currentUser.role === UserRole.ADMIN;
+    const isManager = currentUser.role === UserRole.PROJECT_MANAGER;
+    const isTeamLead = currentUser.role === UserRole.TEAM_LEAD;
+    const isOperator = currentUser.role === UserRole.OPERATOR;
+
     const canEdit = isAdmin || isManager;
     const canViewAll = isAdmin || isManager || isTeamLead;
 

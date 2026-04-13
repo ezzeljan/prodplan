@@ -1,6 +1,8 @@
 package com.prodplan.user.model;
 
 import jakarta.persistence.*;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "projects")
@@ -14,15 +16,23 @@ public class Project {
     private String description;
 
     @ManyToOne
-    @JoinColumn(name = "team_lead_id")
-    private User teamLead;
+    @JoinColumn(name = "project_manager_id")
+    private User projectManager;
+
+    @ManyToMany
+    @JoinTable(
+        name = "project_operators",
+        joinColumns = @JoinColumn(name = "project_id"),
+        inverseJoinColumns = @JoinColumn(name = "operator_id")
+    )
+    private Set<User> operators = new HashSet<>();
 
     public Project() {}
 
-    public Project(String name, String description, User teamLead) {
+    public Project(String name, String description, User projectManager) {
         this.name = name;
         this.description = description;
-        this.teamLead = teamLead;
+        this.projectManager = projectManager;
     }
 
     public Long getId() { return id; }
@@ -34,6 +44,9 @@ public class Project {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    public User getTeamLead() { return teamLead; }
-    public void setTeamLead(User teamLead) { this.teamLead = teamLead; }
+    public User getProjectManager() { return projectManager; }
+    public void setProjectManager(User projectManager) { this.projectManager = projectManager; }
+
+    public Set<User> getOperators() { return operators; }
+    public void setOperators(Set<User> operators) { this.operators = operators; }
 }

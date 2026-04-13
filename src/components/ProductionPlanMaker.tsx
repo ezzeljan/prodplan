@@ -13,6 +13,8 @@ import {
   X,
   FileText,
   Table,
+  Sun,
+  Moon,
 } from "lucide-react";
 import OpenAI from "openai";
 import ReactMarkdown from "react-markdown";
@@ -36,15 +38,15 @@ import {
 } from "./chat/ChatHistorySidebar";
 import ChatHistorySidebar from "./chat/ChatHistorySidebar";
 import ProjectSetupView from "./chat/ProjectSetupView";
-
+import ChatMessage from "./chat/ChatMessage";
+import ChatInput from "./chat/ChatInput";
+import FilePreview from "./chat/FilePreview";
 
 import { useAISpreadsheet } from "../contexts/AISpreadsheetContext";
 import { projectDataToSpreadsheet } from "../utils/spreadsheetConverter";
 import { useNavigate } from "react-router-dom";
 import { storage } from "../utils/storageProvider";
 import type { UnifiedProject } from "../utils/projectStorage";
-import { clearAllProjects } from "../utils/projectStorage";
-import { clearAllPlans } from "../utils/planStorage";
 
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -133,11 +135,11 @@ const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant
           Never use any other format for tables. Always include the |---|---| separator row.`;
 
 const getSystemInstruction = (projectName?: string) => {
-    let base = SYSTEM_INSTRUCTION;
-    if (projectName) {
-        base += `\n\nCONTEXT: You are currently working ONLY for the project folder: "${projectName}". All your suggestions, plans, and technical architectures MUST be specifically for this project. When the user asks for changes, you should assume they refer to this project's spreadsheets.`;
-    }
-    return base;
+  let base = SYSTEM_INSTRUCTION;
+  if (projectName) {
+    base += `\n\nCONTEXT: You are currently working ONLY for the project folder: "${projectName}". All your suggestions, plans, and technical architectures MUST be specifically for this project. When the user asks for changes, you should assume they refer to this project's spreadsheets.`;
+  }
+  return base;
 };
 
 const TOOLS: OpenAI.ChatCompletionTool[] = [
@@ -311,9 +313,9 @@ export default function ProductionPlanMaker() {
     new Set(),
   );
   const [rejectedMsgIds, setRejectedMsgIds] = useState<Set<string>>(new Set());
-  const [lastSavedProjectId, setLastSavedProjectId] = useState<string>('');
+  const [lastSavedProjectId, setLastSavedProjectId] = useState<string>("");
   const [isProjectStarted, setIsProjectStarted] = useState(false);
-  const [currentProjectName, setCurrentProjectName] = useState('');
+  const [currentProjectName, setCurrentProjectName] = useState("");
 
   const { setLastCreated } = useAISpreadsheet();
   const navigate = useNavigate();
@@ -335,47 +337,49 @@ export default function ProductionPlanMaker() {
 
   useEffect(() => {
     const stored = loadSessions();
-    const paramProjectId = searchParams.get('projectId');
+    const paramProjectId = searchParams.get("projectId");
 
     if (paramProjectId) {
-        setIsProjectStarted(true);
-        setLastSavedProjectId(paramProjectId);
-        
-        const existingSession = stored.find(s => s.projectId === paramProjectId);
-        if (existingSession) {
-            setActiveSessionId(existingSession.id);
-            setMessages(existingSession.messages);
-        } else {
-            const newId = Date.now().toString();
-            setActiveSessionId(newId);
-            setMessages([]);
+      setIsProjectStarted(true);
+      setLastSavedProjectId(paramProjectId);
+
+      const existingSession = stored.find((s) => s.projectId === paramProjectId);
+      if (existingSession) {
+        setActiveSessionId(existingSession.id);
+        setMessages(existingSession.messages);
+      } else {
+        const newId = Date.now().toString();
+        setActiveSessionId(newId);
+        setMessages([]);
+      }
+
+      storage.getProject(paramProjectId).then((p) => {
+        if (p) {
+          setCurrentProjectName(p.name);
+          setCurrentProject(p as Partial<ProjectData>);
         }
-        
-        storage.getProject(paramProjectId).then(p => {
-            if (p) {
-                setCurrentProjectName(p.name);
-                setCurrentProject(p as Partial<ProjectData>);
-            }
-        });
-        
-        if (stored.length > 0) setSessions(stored);
-        return;
+      });
+
+      if (stored.length > 0) setSessions(stored);
+      return;
     }
 
     if (stored.length > 0) {
-      setSessions(stored);
-      const last = stored[stored.length - 1];
-      setActiveSessionId(last.id);
-      setMessages(last.messages);
-      if (last.projectId) {
+      const filtered = stored.filter(s => !deletedSessionsRef.current.has(s.id));
+      if (filtered.length > 0) {
+        setSessions(filtered);
+        const last = filtered[filtered.length - 1];
+        setActiveSessionId(last.id);
+        setMessages(last.messages);
+        if (last.projectId) {
           setLastSavedProjectId(last.projectId);
           setIsProjectStarted(true);
-          storage.getProject(last.projectId).then(p => {
-              if (p) setCurrentProjectName(p.name);
+          storage.getProject(last.projectId).then((p) => {
+            if (p) setCurrentProjectName(p.name);
           });
+        }
       } else {
-          setIsProjectStarted(false);
-          setLastSavedProjectId('');
+        setActiveSessionId(Date.now().toString());
       }
     } else {
       setActiveSessionId(Date.now().toString());
@@ -394,12 +398,12 @@ export default function ProductionPlanMaker() {
         updated = filtered.map((s) =>
           s.id === activeSessionId
             ? {
-                ...s,
-                messages,
-                title: generateSessionTitle(messages),
-                projectId: lastSavedProjectId,
-                projectName: currentProjectName, // ✅ FIX: persist project name
-              }
+              ...s,
+              messages,
+              title: generateSessionTitle(messages),
+              projectId: lastSavedProjectId,
+              projectName: currentProjectName,
+            }
             : s,
         );
       } else {
@@ -411,7 +415,7 @@ export default function ProductionPlanMaker() {
             createdAt: new Date().toISOString(),
             messages,
             projectId: lastSavedProjectId,
-            projectName: currentProjectName, // ✅ FIX: persist project name
+            projectName: currentProjectName,
           },
         ];
       }
@@ -444,6 +448,62 @@ export default function ProductionPlanMaker() {
     }
   }, [inputValue]);
 
+  const startNewSession = () => {
+    const newId = Date.now().toString();
+    setActiveSessionId(newId);
+    setMessages([]);
+    setIsProjectStarted(false);
+    setLastSavedProjectId("");
+    setCurrentProjectName("");
+    setCurrentProject(null);
+  };
+
+  const loadSession = (session: ChatSession) => {
+    setActiveSessionId(session.id);
+    setMessages(session.messages || []);
+    if (session.projectId) {
+      setLastSavedProjectId(session.projectId);
+      setIsProjectStarted(true);
+      setCurrentProjectName(session.projectName || "");
+    } else {
+      setIsProjectStarted(false);
+      setLastSavedProjectId("");
+      setCurrentProjectName("");
+    }
+    setShowSidebar(false);
+  };
+
+  const handleDeleteSession = (id: string) => {
+    deletedSessionsRef.current.add(id);
+    setSessions((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      saveSessions(updated);
+      if (activeSessionId === id) {
+        if (updated.length > 0) {
+          loadSession(updated[updated.length - 1]);
+        } else {
+          startNewSession();
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleDeleteAllSessions = () => {
+    setSessions([]);
+    saveSessions([]);
+    startNewSession();
+  };
+
+  const handleNuclearReset = () => {
+    if (confirm("This will permanently delete ALL data, sessions, and files. Proceed?")) {
+      handleDeleteAllSessions();
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.reload();
+    }
+  };
+
   const isTableProposal = (content: string) => {
     return (
       content.includes("DailyProductionTable") ||
@@ -474,6 +534,12 @@ export default function ProductionPlanMaker() {
     }, 100);
   };
 
+  const handleModifyStructure = (msgId: string) => {
+    setRejectedMsgIds((prev) => new Set([...prev, msgId]));
+    setInputValue("I'd like to modify the structure. ");
+    textareaRef.current?.focus();
+  };
+
   const handleStartProject = async (projectName: string) => {
     setCurrentProjectName(projectName);
     const projectId = `proj-${Date.now()}`;
@@ -484,14 +550,14 @@ export default function ProductionPlanMaker() {
       id: projectId,
       name: projectName,
       goal: 0,
-      unit: '',
-      startDate: new Date().toLocaleDateString('en-CA'),
-      endDate: new Date().toLocaleDateString('en-CA'),
+      unit: "",
+      startDate: new Date().toLocaleDateString("en-CA"),
+      endDate: new Date().toLocaleDateString("en-CA"),
       resources: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       spreadsheetData: { columns: [], rows: [], merges: [] },
-      status: 'draft',
+      status: "draft",
       outputs: [],
     };
 
@@ -499,12 +565,11 @@ export default function ProductionPlanMaker() {
 
     const initialMsg: Message = {
       id: Date.now().toString(),
-      role: 'agent',
+      role: "agent",
       content: `I've created the project folder for **${projectName}**. I'm now focused exclusively on this workspace. \n\nPlease provide the project details (Goal, Dates, Resources, etc.) or upload an instruction file to begin building the plan.`,
     };
     setMessages([initialMsg]);
 
-    // ✅ FIX: immediately save the new session with projectName so the sidebar shows it correctly
     const newSessionId = activeSessionId || Date.now().toString();
     setSessions((prev) => {
       const filtered = prev.filter((s) => !deletedSessionsRef.current.has(s.id));
@@ -513,31 +578,31 @@ export default function ProductionPlanMaker() {
       if (exists) {
         updated = filtered.map((s) =>
           s.id === newSessionId
-            ? { ...s, projectId, projectName, messages: [initialMsg], title: 'New Chat' }
-            : s
+            ? {
+              ...s,
+              projectId,
+              projectName,
+              messages: [initialMsg],
+              title: "New Chat",
+            }
+            : s,
         );
       } else {
         updated = [
           ...filtered,
           {
             id: newSessionId,
-            title: 'New Chat',
+            title: "New Chat",
             createdAt: new Date().toISOString(),
             messages: [initialMsg],
             projectId,
-            projectName, // ✅ FIX: include projectName from the start
+            projectName,
           },
         ];
       }
       saveSessions(updated);
       return updated;
     });
-  };
-
-  const handleModifyStructure = (msgId: string) => {
-    setRejectedMsgIds((prev) => new Set([...prev, msgId]));
-    setInputValue("I'd like to modify the structure. ");
-    textareaRef.current?.focus();
   };
 
   const typewriterEffect = (fullText: string, msgId: string) => {
@@ -625,7 +690,11 @@ export default function ProductionPlanMaker() {
           }
           return {
             role: m.role === "user" ? "user" : "assistant",
-            content: m.content || (m.type === 'file' ? `[Generated File: ${m.fileData?.name}]` : "Processing..."),
+            content:
+              m.content ||
+              (m.type === "file"
+                ? `[Generated File: ${m.fileData?.name}]`
+                : "Processing..."),
           } as OpenAI.ChatCompletionMessageParam;
         }),
       ];
@@ -649,16 +718,22 @@ export default function ProductionPlanMaker() {
       while (retries <= maxRetries) {
         try {
           response = await openai.chat.completions.create({
-            model: retries === 0 ? "google/gemini-2.0-flash-001" : "google/gemini-flash-1.5", 
+            model:
+              retries === 0
+                ? "google/gemini-2.0-flash-001"
+                : "google/gemini-flash-1.5",
             messages: openAiMessages,
             tools: TOOLS,
             tool_choice: "auto",
           });
           break;
         } catch (err: any) {
-          if (retries < maxRetries && (err.message?.includes('fetch') || err.message?.includes('network'))) {
+          if (
+            retries < maxRetries &&
+            (err.message?.includes("fetch") || err.message?.includes("network"))
+          ) {
             retries++;
-            await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+            await new Promise((resolve) => setTimeout(resolve, 1000 * retries));
             continue;
           }
           throw err;
@@ -678,9 +753,14 @@ export default function ProductionPlanMaker() {
           ) {
             let projectData: ProjectData;
             try {
-              projectData = JSON.parse(toolCall.function.arguments) as ProjectData;
+              projectData = JSON.parse(
+                toolCall.function.arguments,
+              ) as ProjectData;
             } catch (e) {
-              console.error("Malformed JSON in tool call arguments:", toolCall.function.arguments);
+              console.error(
+                "Malformed JSON in tool call arguments:",
+                toolCall.function.arguments,
+              );
               throw e;
             }
             setCurrentProject(projectData);
@@ -699,9 +779,7 @@ export default function ProductionPlanMaker() {
             const buffer = await generateExcelFile(projectData);
 
             const msgId = Date.now().toString();
-            const generatedText = message.content
-              ? message.content + "\n\n"
-              : "";
+            const generatedText = message.content ? message.content + "\n\n" : "";
 
             const successText = `${generatedText}I've generated the production plan for **${projectData.name}**. You can download the Excel file below or view it in the web spreadsheet.`;
             setMessages((prev) => [
@@ -727,7 +805,7 @@ export default function ProductionPlanMaker() {
               buffer: buffer,
             });
 
-            let savedProjectId = '';
+            let savedProjectId = "";
             try {
               const spreadsheetData = projectDataToSpreadsheet(projectData);
               savedProjectId = lastSavedProjectId || `proj-${Date.now()}`;
@@ -743,14 +821,14 @@ export default function ProductionPlanMaker() {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 spreadsheetData,
-                status: 'active',
+                status: "active",
                 outputs: [],
               };
               await storage.saveProject(unifiedProject);
               setLastCreated(savedProjectId);
               setLastSavedProjectId(savedProjectId);
             } catch (convError) {
-              console.warn('Could not save to project storage:', convError);
+              console.warn("Could not save to project storage:", convError);
             }
           }
         }
@@ -773,7 +851,7 @@ export default function ProductionPlanMaker() {
         { id: msgId, role: "agent", content: "" },
       ]);
       typewriterEffect(
-        `Something went wrong: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
+        `Something went wrong: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`,
         msgId,
       );
     } finally {
@@ -797,102 +875,15 @@ export default function ProductionPlanMaker() {
     document.body.removeChild(link);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const startNewSession = () => {
-    if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-    setIsStreaming(false);
-    const newId = Date.now().toString();
-    setActiveSessionId(newId);
-    setMessages([]);
-    setLastSavedProjectId('');
-    setIsProjectStarted(false);
-    setCurrentProjectName('');
-    setUploadedData(null);
-    setFileName(null);
-    setCurrentFile(null);
-    setCurrentProject(null);
-    setShowSidebar(false);
-  };
-
-  const loadSession = (session: ChatSession) => {
-    if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-    setIsStreaming(false);
-    setActiveSessionId(session.id);
-    setMessages(session.messages);
-    if (session.projectId) {
-      setLastSavedProjectId(session.projectId);
-      setIsProjectStarted(true);
-      // ✅ FIX: use stored projectName first, fall back to fetching from storage
-      if (session.projectName) {
-        setCurrentProjectName(session.projectName);
-      } else {
-        storage.getProject(session.projectId).then(p => {
-          if (p) setCurrentProjectName(p.name);
-        });
-      }
-    } else {
-      setLastSavedProjectId('');
-      setIsProjectStarted(false);
-      setCurrentProjectName('');
-    }
-    setUploadedData(null);
-    setFileName(null);
-    setCurrentFile(null);
-    setCurrentProject(null);
-    setShowSidebar(false);
-  };
-
-  const handleDeleteSession = (sessionId: string) => {
-    deletedSessionsRef.current.add(sessionId);
-    setSessions((prev) => {
-      const updated = prev.filter((s) => s.id !== sessionId);
-      saveSessions(updated);
-      return updated;
-    });
-    if (sessionId === activeSessionId) {
-      const remaining = sessions.filter((s) => s.id !== sessionId);
-      if (remaining.length > 0) {
-        loadSession(remaining[remaining.length - 1]);
-      } else {
-        startNewSession();
-      }
-    }
-  };
-
-  const handleDeleteAllSessions = () => {
-    sessions.forEach(s => deletedSessionsRef.current.add(s.id));
-    setSessions([]);
-    saveSessions([]);
-    startNewSession();
-  };
-
-  const handleNuclearReset = async () => {
-    await clearAllProjects();
-    await clearAllPlans();
-    saveSessions([]);
-    setSessions([]);
-    startNewSession();
-    alert("Application reset successfully. All data has been wiped.");
-  };
-
   return (
     <div
-      className={`w-full h-[calc(100vh-4rem)] md:h-screen flex overflow-hidden relative transition-colors duration-300 ${isDark ? "bg-[#151516]" : "bg-[#F9F7F7]"
-        }`}
+      className={`flex h-full w-full relative transition-colors duration-300 ${isDark ? "bg-[#151516]" : "bg-[#F9F7F7]"}`}
+      onDragEnter={() => setIsDragging(true)}
       onDragOver={(e) => {
         e.preventDefault();
         setIsDragging(true);
       }}
-      onDragLeave={(e) => {
-        const relatedTarget = e.relatedTarget as Node | null;
-        if (!e.currentTarget.contains(relatedTarget)) setIsDragging(false);
-      }}
+      onDragLeave={() => setIsDragging(false)}
       onDrop={async (e) => {
         e.preventDefault();
         setIsDragging(false);
@@ -922,8 +913,8 @@ export default function ProductionPlanMaker() {
       {/* ── Main Chat ── */}
       <div className="flex-1 flex flex-col min-w-0 relative">
         {!isProjectStarted ? (
-          <ProjectSetupView 
-            onComplete={handleStartProject} 
+          <ProjectSetupView
+            onComplete={handleStartProject}
             onReset={handleNuclearReset}
           />
         ) : (
@@ -938,565 +929,176 @@ export default function ProductionPlanMaker() {
                 }`}
             />
 
-        {/* Drag Overlay */}
-        {isDragging && (
-          <div className="absolute inset-0 z-50 bg-blue-600/10 backdrop-blur-sm flex items-center justify-center pointer-events-none">
-            <div className="bg-white p-8 rounded-3xl shadow-2xl border-2 border-blue-500 border-dashed flex flex-col items-center gap-4 animate-in zoom-in-95 duration-200">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                <Download className="w-8 h-8 animate-bounce" />
-              </div>
-              <div className="text-center">
-                <p className="text-xl font-bold text-gray-900">
-                  Drop files here
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  CSV, Excel, PDF, Docs, or Images
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Header */}
-        <div className={`absolute top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-5xl p-2 pr-3 flex justify-between items-center ${isDark ? "bg-[#3f3f46]/90 border border-[#3f3f46] shadow-md" : "bg-[#F3F5F7]/95 border border-[#E8ECEF] shadow-sm"} backdrop-blur-2xl rounded-full z-20`}>
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0"
-              style={{ backgroundColor: "#046241" }}
-            >
-              <Bot className="w-6 h-6" />
-            </div>
-            <div className="flex flex-col justify-center gap-1">
-              <h1
-                className={`text-[15px] font-bold leading-none ${isDark ? "text-gray-100" : "text-[#133020]"}`}
-              >
-                {currentProjectName || "Production Plan Agent"}
-              </h1>
-              <div
-                className={`text-[11px] leading-none flex items-center gap-1.5 ${isDark ? "text-emerald-400" : "text-[#046241]"}`}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full inline-block"
-                  style={{ backgroundColor: "#046241" }}
-                ></span>
-                Powered by Lifewood AI (v1.1)
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-4 items-center pl-4">
-            <div className={`flex items-center gap-2 px-2 py-1.5 rounded-full ${isDark ? "bg-zinc-800" : "bg-[#EAECEF]"}`}>
-              <button
-                onClick={() => {
-                  startNewSession();
-                  setShowSidebar(false);
-                }}
-                className={`p-1.5 rounded-full transition-colors ${isDark
-                  ? "hover:bg-zinc-700 text-gray-300"
-                  : "hover:bg-white text-[#4A5A66] hover:shadow-sm"
-                  }`}
-                title="New Chat"
-              >
-                <Plus className="w-[18px] h-[18px]" />
-              </button>
-            </div>
-
-          </div>
-        </div>
-
-        {/* ── Messages Container ── */}
-        <div
-          className={`flex-1 overflow-y-auto pt-28 pb-40 px-4 sm:px-8 md:px-16 lg:px-24 xl:px-32 space-y-6 relative z-10 ${messages.length === 0 ? "hidden" : ""
-            }`}
-        >
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
-            >
-              {/* Avatar */}
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white"
-                style={{
-                  backgroundColor: msg.role === "agent" ? "#046241" : "#133020",
-                }}
-              >
-                {msg.role === "agent" ? (
-                  <Bot className="w-5 h-5" />
-                ) : (
-                  <UserIcon className="w-5 h-5" />
-                )}
-              </div>
-
-              {/* Bubble + buttons */}
-              <div className="max-w-[80%] space-y-2">
-                {/* Message bubble */}
-                <div
-                  className="p-4 shadow-sm"
-                  style={
-                    msg.role === "agent"
-                      ? {
-                        backgroundColor: isDark ? "#27272a" : "#ffffff",
-                        color: isDark ? "#f4f4f5" : "#133020",
-                        borderRadius: "0 1rem 1rem 1rem",
-                        border: isDark
-                          ? "1px solid #3f3f46"
-                          : "1px solid #e5e0d5",
-                      }
-                      : {
-                        backgroundColor: "#133020",
-                        color: "#ffffff",
-                        borderRadius: "1rem 0 1rem 1rem",
-                      }
-                  }
-                >
-                  <div
-                    className={`leading-relaxed prose prose-sm max-w-none ${isDark ? "prose-invert text-gray-200" : ""
-                      }`}
-                  >
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        p: ({ children }: any) => (
-                          <p className="mb-2 last:mb-0">{children}</p>
-                        ),
-                        strong: ({ children }: any) => (
-                          <strong className="font-semibold">{children}</strong>
-                        ),
-                        ul: ({ children }: any) => (
-                          <ul className="list-disc list-inside mb-2 space-y-1">
-                            {children}
-                          </ul>
-                        ),
-                        ol: ({ children }: any) => (
-                          <ol className="list-decimal list-inside mb-2 space-y-1">
-                            {children}
-                          </ol>
-                        ),
-                        li: ({ children }: any) => (
-                          <li className="text-sm">{children}</li>
-                        ),
-                        code: ({ children }: any) => (
-                          <code
-                            className="px-1 rounded text-xs font-mono"
-                            style={{
-                              backgroundColor: isDark ? "#3f3f46" : "#F9F7F7",
-                              color: isDark ? "#e4e4e7" : "#133020",
-                            }}
-                          >
-                            {children}
-                          </code>
-                        ),
-                        table: ({ children }: any) => (
-                          <div
-                            className="overflow-x-auto my-3 rounded-xl border"
-                            style={{
-                              borderColor: isDark ? "#3f3f46" : "#e5e0d5",
-                            }}
-                          >
-                            <table className="w-full text-xs border-collapse">
-                              {children}
-                            </table>
-                          </div>
-                        ),
-                        thead: ({ children }: any) => (
-                          <thead style={{ backgroundColor: "#046241" }}>
-                            {children}
-                          </thead>
-                        ),
-                        th: ({ children }: any) => (
-                          <th className="px-3 py-2 text-left font-bold text-white whitespace-nowrap border-r border-white/20 last:border-r-0">
-                            {children}
-                          </th>
-                        ),
-                        tbody: ({ children }: any) => <tbody>{children}</tbody>,
-                        tr: ({ children }: any) => (
-                          <tr
-                            className="border-t"
-                            style={{
-                              borderColor: isDark ? "#3f3f46" : "#e5e0d5",
-                            }}
-                          >
-                            {children}
-                          </tr>
-                        ),
-                        td: ({ children }: any) => (
-                          <td
-                            className="px-3 py-2 border-r last:border-r-0"
-                            style={{
-                              borderColor: isDark ? "#3f3f46" : "#e5e0d5",
-                              color: isDark ? "#d4d4d8" : "#133020",
-                            }}
-                          >
-                            {children}
-                          </td>
-                        ),
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
+            {/* Drag Overlay */}
+            {isDragging && (
+              <div className="absolute inset-0 z-50 bg-blue-600/10 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+                <div className="bg-white p-8 rounded-3xl shadow-2xl border-2 border-blue-500 border-dashed flex flex-col items-center gap-4 animate-in zoom-in-95 duration-200">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                    <Download className="w-8 h-8 animate-bounce" />
                   </div>
-
-                  {/* Attachment Preview */}
-                  {msg.attachment && (
-                    <div className="mt-3 pt-3 border-t border-white/10">
-                      {msg.attachment.type.startsWith("image/") ? (
-                        <div
-                          className="relative group cursor-pointer overflow-hidden rounded-lg border border-white/20 w-fit"
-                          onClick={() =>
-                            setPreviewImage({
-                              url: msg.attachment!.data,
-                              name: msg.attachment!.name,
-                            })
-                          }
-                        >
-                          <img
-                            src={msg.attachment.data}
-                            alt={msg.attachment.name}
-                            className="block max-w-full h-auto max-h-75 transition-transform group-hover:scale-105"
-                          />
-                        </div>
-                      ) : (
-                        <div
-                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isDark
-                            ? "bg-white/5 border-white/10 hover:bg-white/10"
-                            : "bg-white/10 border-white/20 hover:bg-white/20"
-                            }`}
-                          onClick={() =>
-                            downloadAttachment(
-                              msg.attachment!.data,
-                              msg.attachment!.name,
-                            )
-                          }
-                        >
-                          <div className="p-2 bg-white/20 rounded-md">
-                            <FileText className="w-5 h-5 text-white" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">
-                              {msg.attachment.name}
-                            </p>
-                            <p className="text-xs text-white/70">
-                              Click to download
-                            </p>
-                          </div>
-                          <Download className="w-4 h-4 text-white/70" />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Confirm / Modify buttons */}
-                {msg.role === "agent" &&
-                  msg.type !== "file" &&
-                  isTableProposal(msg.content) &&
-                  !confirmedMsgIds.has(msg.id) &&
-                  !rejectedMsgIds.has(msg.id) &&
-                  !isStreaming &&
-                  msg.content.length > 50 && (
-                    <div className="flex gap-2 mt-1">
-                      <button
-                        onClick={() => handleConfirmStructure(msg.id)}
-                        className="flex-1 py-2.5 px-4 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 hover:-translate-y-0.5 active:scale-95 shadow-sm flex items-center justify-center gap-2"
-                        style={{ backgroundColor: "#046241" }}
-                      >
-                        ✅ Looks good, generate file
-                      </button>
-                      <button
-                        onClick={() => handleModifyStructure(msg.id)}
-                        className="flex-1 py-2.5 px-4 rounded-xl text-sm font-bold transition-all hover:opacity-90 hover:-translate-y-0.5 active:scale-95 shadow-sm flex items-center justify-center gap-2"
-                        style={{
-                          backgroundColor: isDark ? "#3f3f46" : "#f0ede6",
-                          color: "#046241",
-                          border: "1px solid #046241",
-                        }}
-                      >
-                        ✏️ Modify structure
-                      </button>
-                    </div>
-                  )}
-
-                {/* Confirmed badge */}
-                {confirmedMsgIds.has(msg.id) && (
-                  <div
-                    className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg w-fit"
-                    style={{
-                      backgroundColor: "rgba(4,98,65,0.1)",
-                      color: "#046241",
-                    }}
-                  >
-                    ✅ Structure confirmed — generating file...
+                  <div className="text-center">
+                    <p className="text-xl font-bold text-gray-900">
+                      Drop files here
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      CSV, Excel, PDF, Docs, or Images
+                    </p>
                   </div>
-                )}
-
-                {/* Download Section or External Links */}
-                {(msg.type === "file" || msg.type === "google-sheet") && msg.fileData && !isStreaming && (
-                  msg.type === "google-sheet" ? (
-                    <a
-                      href={msg.fileData.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-4 rounded-xl w-full transition-opacity text-left hover:opacity-90"
-                      style={{
-                        backgroundColor: "#FFC370",
-                        border: "1px solid #FFB347",
-                        textDecoration: "none"
-                      }}
-                    >
-                      <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: "rgba(255,255,255,0.3)" }}
-                      >
-                        <FileSpreadsheet
-                          className="w-6 h-6"
-                          style={{ color: "#133020" }}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-bold text-sm" style={{ color: "#133020" }}>
-                          {msg.fileData.name}
-                        </p>
-                        <p className="text-xs" style={{ color: "#046241" }}>
-                          Click to open in a new tab
-                        </p>
-                      </div>
-                    </a>
-                  ) : (
-                    <button
-                      onClick={() =>
-                        handleDownload(msg.fileData!.name, msg.fileData!.buffer)
-                      }
-                      className="flex items-center gap-3 p-4 rounded-xl w-full transition-opacity text-left hover:opacity-90"
-                      style={{
-                        backgroundColor: "#FFC370",
-                        border: "1px solid #FFB347",
-                      }}
-                    >
-                      <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: "rgba(255,255,255,0.3)" }}
-                      >
-                        <FileSpreadsheet
-                          className="w-6 h-6"
-                          style={{ color: "#133020" }}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium" style={{ color: "#133020" }}>
-                          {msg.fileData!.name}
-                        </p>
-                        <p className="text-xs" style={{ color: "#046241" }}>
-                          Click to download
-                        </p>
-                      </div>
-                      <Download
-                        className="w-5 h-5 shrink-0"
-                        style={{ color: "#133020" }}
-                      />
-                    </button>
-                  )
-                )}
-
-                {/* View in Spreadsheet button */}
-                {(msg.type === "file" || msg.type === "google-sheet") && msg.fileData && !isStreaming && lastSavedProjectId && (
-                  <button
-                    onClick={() => navigate(`/projects/${lastSavedProjectId}`)}
-                    className="flex items-center gap-3 p-3 rounded-xl w-full transition-all text-left hover:opacity-90 mt-2"
-                    style={{
-                      backgroundColor: '#046241',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                    }}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}
-                    >
-                      <Table className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-sm text-white">View in Spreadsheet</p>
-                      <p className="text-[11px] text-white/70">Open in the editable web spreadsheet</p>
-                    </div>
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Typing indicator */}
-          {isTyping && (
-            <div className="flex gap-3">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0"
-                style={{ backgroundColor: "#046241" }}
-              >
-                <Bot className="w-5 h-5" />
-              </div>
-              <div
-                className="p-4 rounded-2xl shadow-sm flex items-center gap-2"
-                style={{
-                  backgroundColor: isDark ? "#27272a" : "#ffffff",
-                  border: isDark ? "1px solid #3f3f46" : "1px solid #e5e0d5",
-                }}
-              >
-                <Loader2
-                  className="w-4 h-4 animate-spin"
-                  style={{ color: "#046241" }}
-                />
-                <span
-                  className="text-sm"
-                  style={{ color: isDark ? "#f4f4f5" : "#133020" }}
-                >
-                  Processing your request...
-                </span>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* ── Input Area Dock ── */}
-        <div
-          className={
-            messages.length === 0
-              ? "absolute inset-0 flex flex-col items-center justify-center p-4 z-20 pointer-events-none"
-              : `absolute bottom-0 left-0 w-full pb-6 pt-12 px-4 flex justify-center z-20 pointer-events-none bg-linear-to-t ${isDark
-                ? "from-[#151516] via-[#151516]/90"
-                : "from-[#F9F7F7] via-[#F9F7F7]/90"
-              } to-transparent transition-colors duration-300`
-          }
-        >
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center pointer-events-auto mb-6">
-              <h2
-                className={`text-3xl md:text-5xl font-normal tracking-tight text-center transition-colors duration-300 ${isDark ? "text-gray-100" : "text-[#133020]"}`}
-              >
-                What's on the agenda today?
-              </h2>
-            </div>
-          )}
-          <div
-            className={`w-full max-w-5xl p-2 rounded-3xl space-y-3 backdrop-blur-xl pointer-events-auto border transition-colors duration-300 ${isDark ? "bg-zinc-800/60 border-zinc-600"
-              : "bg-white/50 border-[#e5e0d5] shadow-xl"
-              }`}
-          >
-            {fileName && (
-              <div
-                className="flex items-center justify-between px-3 py-2 rounded-lg"
-                style={{
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #FFC370",
-                }}
-              >
-                <div
-                  className="flex items-center gap-2 text-sm"
-                  style={{ color: "#046241" }}
-                >
-                  <Paperclip className="w-4 h-4" />
-                  <span className="font-medium truncate max-w-50">
-                    {fileName}
-                  </span>
                 </div>
-                <button
-                  onClick={() => {
-                    setFileName(null);
-                    setUploadedData(null);
-                    setCurrentFile(null);
-                  }}
-                  className="hover:opacity-70"
-                  style={{ color: "#FFB347" }}
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
             )}
 
-            <div className="flex items-end gap-0">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-3 mb-0.5 rounded-full transition-opacity hover:opacity-70"
-                title="Upload file (CSV, Excel, PDF, Doc, PPT, Image)"
-              >
-                <Paperclip className="w-5 h-5 text-[#4A5A66]" />
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-                accept=".csv, .xlsx, .xls, .pdf, .docx, .doc, .pptx, .ppt, .txt, .md, .json, image/*"
-                className="hidden"
-              />
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Enter your project details..."
-                disabled={isTyping || isStreaming}
-                className={`flex-1 px-4 py-3 rounded-2xl outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none backdrop-blur-sm ${isDark
-                  ? "bg-zinc-900/40 text-gray-100 placeholder-zinc-500"
-                  : "bg-white/60 text-[#133020] placeholder-gray-500"
-                  }`}
-                style={{
-                  border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(229, 224, 213, 0.5)",
-                  maxHeight: "120px",
-                  overflowY: "auto",
-                }}
-              />
-              <button
-                data-send-btn
-                onClick={handleSendMessage}
-                disabled={
-                  (!inputValue.trim() && !currentFile) ||
-                  isTyping ||
-                  isStreaming
-                }
-                className="p-3 mb-0.5 rounded-full transition-opacity disabled:opacity-50 disabled:cursor-not-allowed border border-white/40"
-                style={{ backgroundColor: isDark ? "#FFFFFF" : "#000000" }}
-              >
-                <Send
-                  className={`w-5 h-5 ${isDark ? "text-[#4A5A66]" : "text-white"}`}
-                />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Image Preview Modal */}
-        {previewImage && (
-          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="relative max-w-full max-h-full flex flex-col items-center">
-              <div className="absolute top-4 right-4 flex gap-3 z-10">
-                <button
-                  onClick={() =>
-                    downloadAttachment(previewImage.url, previewImage.name)
-                  }
-                  className="p-3 bg-black/60 hover:bg-black/80 rounded-full text-white backdrop-blur-md transition-all border border-white/20 shadow-lg hover:scale-105"
-                  title="Download"
+            {/* Header */}
+            <div className={`absolute top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-5xl p-2 pr-3 flex justify-between items-center ${isDark ? "bg-[#3f3f46]/90 border border-[#3f3f46] shadow-md" : "bg-[#F3F5F7]/95 border border-[#E8ECEF] shadow-sm"} backdrop-blur-2xl rounded-full z-20`}>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0"
+                  style={{ backgroundColor: "#046241" }}
                 >
-                  <Download className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={() => setPreviewImage(null)}
-                  className="p-3 bg-black/60 hover:bg-black/80 rounded-full text-white backdrop-blur-md transition-all border border-white/20 shadow-lg hover:scale-105"
-                  title="Close"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+                  <Bot className="w-6 h-6" />
+                </div>
+                <div className="flex flex-col justify-center gap-1">
+                  <h1
+                    className={`text-[15px] font-bold leading-none ${isDark ? "text-gray-100" : "text-[#133020]"}`}
+                  >
+                    {currentProjectName || "Production Plan Agent"}
+                  </h1>
+                  <div
+                    className={`text-[11px] leading-none flex items-center gap-1.5 ${isDark ? "text-emerald-400" : "text-[#046241]"}`}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full inline-block"
+                      style={{ backgroundColor: "#046241" }}
+                    ></span>
+                    Powered by Lifewood AI (v1.1)
+                  </div>
+                </div>
               </div>
-              <img
-                src={previewImage.url}
-                alt={previewImage.name}
-                className="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain"
-              />
-              <p className="mt-4 text-white/80 font-medium">
-                {previewImage.name}
-              </p>
+
+              <div className="flex gap-4 items-center pl-4">
+                <div className={`flex items-center gap-2 px-2 py-1.5 rounded-full ${isDark ? "bg-zinc-800" : "bg-[#EAECEF]"}`}>
+                  <button
+                    onClick={() => {
+                      startNewSession();
+                      setShowSidebar(false);
+                    }}
+                    className={`p-1.5 rounded-full transition-colors ${isDark
+                      ? "hover:bg-zinc-700 text-gray-300"
+                      : "hover:bg-white text-[#4A5A66] hover:shadow-sm"
+                      }`}
+                    title="New Chat"
+                  >
+                    <Plus className="w-[18px] h-[18px]" />
+                  </button>
+                  <button
+                    onClick={() => setIsDark(!isDark)}
+                    className={`p-1.5 rounded-full transition-colors ${isDark
+                      ? "hover:bg-zinc-700 text-gray-300"
+                      : "hover:bg-white text-[#4A5A66] hover:shadow-sm"
+                      }`}
+                    title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                  >
+                    {isDark ? (
+                      <Sun className="w-[18px] h-[18px]" />
+                    ) : (
+                      <Moon className="w-[18px] h-[18px]" />
+                    )}
+                  </button>
+                </div>
+
+              </div>
             </div>
-          </div>
-        )}
+
+            {/* ── Messages Container ── */}
+            <div
+              className={`flex-1 overflow-y-auto pt-28 pb-40 px-4 sm:px-8 md:px-16 lg:px-24 xl:px-32 space-y-6 relative z-10 ${messages.length === 0 ? "hidden" : ""}`}
+            >
+              {messages.map((msg) => (
+                <ChatMessage
+                  key={msg.id}
+                  msg={msg}
+                  isDark={isDark}
+                  isStreaming={isStreaming}
+                  confirmedMsgIds={confirmedMsgIds}
+                  rejectedMsgIds={rejectedMsgIds}
+                  onConfirm={(id) => handleConfirmStructure(id)}
+                  onReject={(id) => handleModifyStructure(id)}
+                  onDownload={(name, buf) => handleDownload(name, buf)}
+                  onViewProject={(id) => navigate(`/projects/${id}`)}
+                  lastSavedProjectId={lastSavedProjectId}
+                />
+              ))}
+
+              {/* Typing indicator */}
+              {isTyping && (
+                <div className="flex gap-3">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0"
+                    style={{ backgroundColor: "#046241" }}
+                  >
+                    <Bot className="w-5 h-5" />
+                  </div>
+                  <div
+                    className="p-4 rounded-2xl shadow-sm flex items-center gap-2"
+                    style={{
+                      backgroundColor: isDark ? "#27272a" : "#ffffff",
+                      border: isDark ? "1px solid #3f3f46" : "1px solid #e5e0d5",
+                    }}
+                  >
+                    <Loader2
+                      className="w-4 h-4 animate-spin"
+                      style={{ color: "#046241" }}
+                    />
+                    <span
+                      className="text-sm"
+                      style={{ color: isDark ? "#f4f4f5" : "#133020" }}
+                    >
+                      Processing your request...
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* ── Input Area Dock ── */}
+            <div
+              className={
+                messages.length === 0
+                  ? "absolute inset-0 flex flex-col items-center justify-center p-4 z-20 pointer-events-none"
+                  : `absolute bottom-0 left-0 w-full pb-6 pt-12 px-4 flex justify-center z-20 pointer-events-none bg-linear-to-t ${isDark
+                    ? "from-[#151516] via-[#151516]/90"
+                    : "from-[#F9F7F7] via-[#F9F7F7]/90"
+                  } to-transparent transition-colors duration-300`
+              }
+            >
+              {messages.length === 0 && (
+                <div className="flex flex-col items-center pointer-events-auto mb-6">
+                  <h2
+                    className={`text-3xl md:text-5xl font-normal tracking-tight text-center transition-colors duration-300 ${isDark ? "text-gray-100" : "text-[#133020]"}`}
+                  >
+                    What's on the agenda today?
+                  </h2>
+                </div>
+              )}
+              <ChatInput
+                inputValue={inputValue}
+                setInputValue={setInputValue}
+                onSend={handleSendMessage}
+                onFileUpload={handleFileUpload}
+                isTyping={isTyping}
+                isStreaming={isStreaming}
+                fileName={fileName}
+                currentFile={currentFile}
+                onRemoveFile={() => {
+                  setFileName(null);
+                  setCurrentFile(null);
+                  setUploadedData(null);
+                }}
+                isDark={isDark}
+                textareaRef={textareaRef}
+              />
+            </div>
           </>
         )}
       </div>

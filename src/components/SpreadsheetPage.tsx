@@ -5,10 +5,11 @@ import { useUser } from '../contexts/UserContext';
 import { SpreadsheetData } from '../types/spreadsheet';
 
 import { useParams, useNavigate } from 'react-router-dom';
-import { Lock, Eye, ArrowLeft, Loader2, MessageSquare } from 'lucide-react';
+import { Lock, Eye, ArrowLeft, Loader2, MessageSquare, Users } from 'lucide-react';
 import { storage } from '../utils/storageProvider';
 import type { UnifiedProject } from '../utils/projectStorage';
 import { filterSpreadsheetForOperator } from '../utils/operatorMatcher';
+import TeamManagementModal from './TeamManagementModal';
 
 export default function SpreadsheetPage() {
     const { id } = useParams<{ id: string }>();
@@ -17,6 +18,7 @@ export default function SpreadsheetPage() {
     const [project, setProject] = useState<UnifiedProject | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
 
     useEffect(() => {
         if (!id) {
@@ -130,6 +132,16 @@ export default function SpreadsheetPage() {
                                 <MessageSquare className="w-3.5 h-3.5 text-[var(--accent-secondary)] group-hover:scale-110 transition-transform" />
                                 <span className="text-xs font-medium text-[var(--text-primary)]">Talk to AI Agent</span>
                             </button>
+
+                            {(canEdit || !isOperator) && (
+                                <button
+                                    onClick={() => setIsTeamModalOpen(true)}
+                                    className="glass-card flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--accent-primary)]/10 hover:border-[var(--accent-secondary)]/30 transition-all cursor-pointer group"
+                                >
+                                    <Users className="w-3.5 h-3.5 text-[var(--accent-secondary)] group-hover:scale-110 transition-transform" />
+                                    <span className="text-xs font-medium text-[var(--text-primary)]">Manage Team</span>
+                                </button>
+                            )}
                         </>
                     )}
 
@@ -157,6 +169,15 @@ export default function SpreadsheetPage() {
                     onDataChange={handleDataChange}
                 />
             </div>
+
+            {project && (
+                <TeamManagementModal
+                    isOpen={isTeamModalOpen}
+                    onClose={() => setIsTeamModalOpen(false)}
+                    projectId={project.id}
+                    projectTitle={project.name}
+                />
+            )}
         </div>
     );
 }

@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOperatorAuth } from '../../contexts/OperatorAuthContext';
-import { Mail, KeyRound, Loader2, AlertCircle } from 'lucide-react';
+import { KeyRound, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import logo from '../../assets/lifewood-logo.png';
 
 export default function OperatorLogin() {
     const { login } = useOperatorAuth();
     const navigate = useNavigate();
-    const [email, setEmail] = useState('');
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -35,15 +34,15 @@ export default function OperatorLogin() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!email.trim() || !pin.trim()) {
-            setError('Please enter your email and PIN.');
+        if (!pin.trim()) {
+            setError('Please enter your 6-digit PIN.');
             return;
         }
 
         setSubmitting(true);
         setError('');
 
-        const result = await login(email, pin);
+        const result = await login('', pin);
         if (!result.success) {
             setError(result.error || 'Login failed.');
         }
@@ -83,37 +82,22 @@ export default function OperatorLogin() {
                     )}
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-zinc-700 pl-1">
-                            Email
-                        </label>
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={e => { setEmail(e.target.value); setError(''); }}
-                                placeholder="you@company.com"
-                                className="w-full pl-10 pr-4 py-2.5 text-sm bg-zinc-50 border border-zinc-300 rounded-xl focus:outline-none focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/20 text-zinc-900 placeholder:text-zinc-400 transition-all font-medium"
-                                autoComplete="email"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-zinc-700 pl-1">
-                            PIN
-                        </label>
+                        <label className="text-xs font-semibold text-zinc-700 pl-1 font-['Manrope']">Personnel PIN</label>
                         <div className="relative">
                             <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                             <input
                                 type="password"
                                 value={pin}
                                 onChange={e => { setPin(e.target.value); setError(''); }}
-                                placeholder="Enter your PIN"
-                                className="w-full pl-10 pr-4 py-2.5 text-sm bg-zinc-50 border border-zinc-300 rounded-xl focus:outline-none focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/20 text-zinc-900 placeholder:text-zinc-400 transition-all font-medium"
+                                maxLength={6}
+                                className="w-full pl-10 pr-4 py-3 text-lg tracking-[0.5em] bg-zinc-50 border border-zinc-200 rounded-2xl focus:outline-none focus:border-[var(--accent-primary)] focus:ring-4 focus:ring-[var(--accent-primary)]/10 text-zinc-900 placeholder:text-zinc-400 placeholder:tracking-normal transition-all font-bold text-center"
+                                placeholder="••••••"
                                 autoComplete="current-password"
                             />
                         </div>
+                        <p className="text-[10px] text-zinc-400 text-center mt-2 px-4 italic">
+                            Use your unique 6-digit company PIN to view your assigned projects.
+                        </p>
                     </div>
 
                     <button

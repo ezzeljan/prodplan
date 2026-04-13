@@ -32,7 +32,7 @@ public class DataSeeder {
         });
 
         // 2. Seed or Update the new Admin
-        java.util.Optional<com.prodplan.user.model.User> existing = userRepository.findByEmail(adminEmail);
+        java.util.Optional<com.prodplan.user.model.User> existing = userRepository.findByEmailAndRole(adminEmail, Role.ADMIN);
         
         if (existing.isEmpty()) {
             com.prodplan.user.model.User admin = new com.prodplan.user.model.User("System Admin", adminEmail, Role.ADMIN, targetPin);
@@ -40,10 +40,10 @@ public class DataSeeder {
             System.out.println("Seeded Admin user. Email: " + adminEmail + ", PIN: " + targetPin);
         } else {
             com.prodplan.user.model.User admin = existing.get();
-            admin.setPin(targetPin);
+            // Ensure role is Admin, but don't reset PIN if it already exists
             admin.setRole(Role.ADMIN);
             userRepository.save(admin);
-            System.out.println("Reset Admin user PIN. Email: " + adminEmail + ", PIN: " + targetPin);
+            System.out.println("Verified existing Admin account. Email: " + adminEmail);
         }
     }
 }

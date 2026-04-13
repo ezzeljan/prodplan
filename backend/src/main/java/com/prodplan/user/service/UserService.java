@@ -18,22 +18,68 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public User createUser(String name, String email, Role role) {
-        if (userRepository.findByEmail(email).isPresent()) {
-            throw new IllegalArgumentException("User with this email already exists");
+    public User createUser(String name, String email, Role role, String manualPin) {
+        // Email is no longer required to be unique as they share company format
+        String pin = (manualPin != null && !manualPin.isBlank()) ? manualPin : generateUniquePin();
+        
+        // Ensure the chosen PIN isn't already taken
+        if (manualPin != null && !manualPin.isBlank() && userRepository.findByPin(pin).isPresent()) {
+             throw new IllegalArgumentException("Target PIN is already assigned to another user.");
         }
 
-        String pin = generateUniquePin();
         User user = new User(name, email, role, pin);
         return userRepository.save(user);
     }
 
     public Optional<User> authenticate(String email, String pin) {
-        return userRepository.findByEmailAndPin(email, pin);
+        Optional<User> userOpt = userRepository.findByPin(pin);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            // Admin and PM MUST match specialized email + password (PIN)
+            if (user.getRole() == Role.ADMIN || user.getRole() == Role.PROJECT_MANAGER) {
+                if (user.getEmail().equalsIgnoreCase(email)) {
+                    return userOpt;
+                } else {
+                    return Optional.empty();
+                }
+            }
+            // PM and Operators are PIN-centric
+            return userOpt;
+        }
+        return Optional.empty();
     }
 
     public java.util.List<User> getAllUsers() {
         return userRepository.findAll();
+    }
+
+    public Optional<User> getUserById(Long id) {
+        return userRepository.findById(id);
+    }
+
+    public void deleteUser(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new IllegalArgumentException("User not found");
+        }
+        userRepository.deleteById(id);
+    }
+
+    public User updateUser(Long id, String name, String email, Role role, String pin) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (pin != null && !pin.isBlank() && !pin.equals(user.getPin())) {
+            if (userRepository.findByPin(pin).isPresent()) {
+                throw new IllegalArgumentException("Target PIN is already assigned to another user.");
+            }
+            user.setPin(pin);
+        }
+
+        if (name != null) user.setName(name);
+        if (email != null) user.setEmail(email);
+        if (role != null) user.setRole(role);
+
+        return userRepository.save(user);
     }
 
     private String generateUniquePin() {

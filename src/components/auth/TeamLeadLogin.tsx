@@ -11,7 +11,7 @@ export default function TeamLeadLogin() {
   const { users, switchUser } = useUser();
   const navigate = useNavigate();
 
-  
+
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,7 +20,7 @@ export default function TeamLeadLogin() {
 
   const teamLeads = users.filter(u => u.role === 'teamlead');
 
-const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -34,22 +34,13 @@ const handleLogin = (e: React.FormEvent) => {
     setTimeout(() => {
       const userToLogin = teamLeads.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
 
-      if (!userToLogin) {
-        const defaultTeamLead = teamLeads[0];
-        if (email.includes('teamlead')) {
-          sessionStorage.setItem('teamlead-session', JSON.stringify({ email: defaultTeamLead.email, pin: password }));
-          switchUser(defaultTeamLead.id);
-          login();
-          navigate('/teamlead-dashboard');
-        } else {
-          setError('Invalid team lead credentials.');
-          setIsSubmitting(false);
-        }
-      } else {
-        sessionStorage.setItem('teamlead-session', JSON.stringify({ email: userToLogin.email, pin: password }));
+      if (userToLogin) {
+        login({ email: userToLogin.email, pin: password });
         switchUser(userToLogin.id);
-        login();
         navigate('/teamlead-dashboard');
+      } else {
+        setError('Invalid team lead credentials.');
+        setIsSubmitting(false);
       }
     }, 800);
   };

@@ -73,12 +73,12 @@ export function buildScheduleWithTargets(
   });
 
   const uniqueDates = Array.from(
-    new Set(scheduleItems.map((s) => s.date.toISOString()))
+    new Set(scheduleItems.map((s: any) => (s.date as Date).toISOString()))
   ).sort();
   const totalDays = uniqueDates.length;
   const itemsByDay: Record<string, number> = {};
-  scheduleItems.forEach((item) => {
-    const d = item.date.toISOString();
+  scheduleItems.forEach((item: any) => {
+    const d = (item.date as Date).toISOString();
     itemsByDay[d] = (itemsByDay[d] || 0) + 1;
   });
 
@@ -102,8 +102,8 @@ export function buildScheduleWithTargets(
     cumulativeWeight += weight * (itemsByDay[date] || 0);
   });
 
-  return scheduleItems.map((item) => {
-    const weight = dailyWeights[item.date.toISOString()] || 1;
+  return scheduleItems.map((item: any) => {
+    const weight = dailyWeights[(item.date as Date).toISOString()] || 1;
     const target = (weight / (cumulativeWeight || 1)) * projectData.goal;
     const actualVal = typeof item.actual === 'number' ? item.actual : 0;
     const variance = target - actualVal;

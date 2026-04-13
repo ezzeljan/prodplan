@@ -1,3 +1,4 @@
+import { User } from '../types/auth';
 import { SpreadsheetData } from '../types/spreadsheet';
 
 export interface UnifiedProject {
@@ -8,7 +9,9 @@ export interface UnifiedProject {
     unit: string;
     startDate: string;
     endDate: string;
-    resources: string[];
+    projectManager?: User;
+    operators?: User[];
+    resources: string[]; // Legacy compatibility (names)
     createdAt: string;
     updatedAt: string;
     spreadsheetData: SpreadsheetData;
