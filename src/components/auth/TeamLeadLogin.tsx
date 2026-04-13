@@ -1,46 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUser } from '../../contexts/UserContext';
 import { motion } from 'motion/react';
-import { Shield, ArrowRight, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
+import { Users, ArrowRight, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/lifewood-logo.png';
 
-export default function AdminLogin() {
+export default function TeamLeadLogin() {
   const { login } = useAuth();
   const { users, switchUser } = useUser();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.altKey) {
-        if (e.key.toLowerCase() === 'a') {
-          e.preventDefault();
-          navigate('/admin');
-        } else if (e.key.toLowerCase() === 'm') {
-          e.preventDefault();
-          navigate('/manager');
-        } else if (e.key.toLowerCase() === 't') {
-          e.preventDefault();
-          navigate('/teamlead');
-        } else if (e.key.toLowerCase() === 'o') {
-          e.preventDefault();
-          navigate('/portal');
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate]);
+  
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const admins = users.filter(u => u.role === 'admin');
+  const teamLeads = users.filter(u => u.role === 'teamlead');
 
-  const handleLogin = async (e: React.FormEvent) => {
+const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -51,37 +31,27 @@ export default function AdminLogin() {
 
     setIsSubmitting(true);
 
-    try {
-      const response = await fetch('http://localhost:8080/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, pin: password })
-      });
+    setTimeout(() => {
+      const userToLogin = teamLeads.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Invalid credentials.');
-        setIsSubmitting(false);
-        return;
+      if (!userToLogin) {
+        const defaultTeamLead = teamLeads[0];
+        if (email.includes('teamlead')) {
+          sessionStorage.setItem('teamlead-session', JSON.stringify({ email: defaultTeamLead.email, pin: password }));
+          switchUser(defaultTeamLead.id);
+          login();
+          navigate('/teamlead-dashboard');
+        } else {
+          setError('Invalid team lead credentials.');
+          setIsSubmitting(false);
+        }
+      } else {
+        sessionStorage.setItem('teamlead-session', JSON.stringify({ email: userToLogin.email, pin: password }));
+        switchUser(userToLogin.id);
+        login();
+        navigate('/teamlead-dashboard');
       }
-
-      // Check if user is actually an admin
-      if (data.user.role !== 'ADMIN') {
-        setError('Access denied. You do not have administrator privileges.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Sync with traditional frontend session
-      sessionStorage.setItem('admin-session', JSON.stringify({ email, pin: password }));
-      switchUser(data.user.id.toString());
-      login();
-      navigate('/');
-    } catch (err) {
-      setError('Could not connect to the server.');
-      setIsSubmitting(false);
-    }
+    }, 800);
   };
 
   return (
@@ -98,8 +68,9 @@ export default function AdminLogin() {
             alt="Lifewood"
             className="h-10 w-auto object-contain mb-6"
           />
-          <h1 className="text-xl font-bold text-zinc-900">Admin Portal</h1>
-          <p className="text-sm text-zinc-500 mt-1">Sign in to manage production plans</p>
+
+          <h1 className="text-xl font-bold text-zinc-900">Team Lead</h1>
+          <p className="text-sm text-zinc-500 mt-1">Sign in to view all projects</p>
         </div>
 
         <form onSubmit={handleLogin} className="bg-white border border-zinc-200 shadow-xl rounded-3xl p-6 space-y-5">
@@ -123,7 +94,7 @@ export default function AdminLogin() {
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
                 className="w-full pl-10 pr-4 py-2.5 text-sm bg-zinc-50 border border-zinc-300 rounded-xl focus:outline-none focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-primary)]/20 text-zinc-900 placeholder:text-zinc-400 transition-all font-medium"
-                placeholder="admin@lifewood.ph"
+                placeholder="teamlead@lifewood.ph"
               />
             </div>
           </div>
@@ -164,7 +135,6 @@ export default function AdminLogin() {
             )}
           </button>
         </form>
-
 
       </motion.div>
     </div>

@@ -6,18 +6,21 @@ import { motion, AnimatePresence } from 'motion/react';
 const roleIcons: Record<UserRole, React.ReactNode> = {
     admin: <Shield className="w-3.5 h-3.5" />,
     manager: <Briefcase className="w-3.5 h-3.5" />,
+    teamlead: <Users className="w-3.5 h-3.5" />,
     operator: <User className="w-3.5 h-3.5" />,
 };
 
 const roleColors: Record<UserRole, string> = {
     admin: 'text-[var(--metric-purple)]',
     manager: 'text-[var(--metric-blue)]',
+    teamlead: 'text-[var(--accent-secondary)]',
     operator: 'text-[var(--metric-green)]',
 };
 
 const roleBgColors: Record<UserRole, string> = {
     admin: 'bg-[var(--metric-purple)]/10',
     manager: 'bg-[var(--metric-blue)]/10',
+    teamlead: 'bg-[var(--accent-secondary)]/10',
     operator: 'bg-[var(--metric-green)]/10',
 };
 

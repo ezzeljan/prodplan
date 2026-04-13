@@ -11,10 +11,14 @@ import OperatorProjectsList from "./components/portal/OperatorProjectsList";
 import OperatorProjectView from "./components/portal/OperatorProjectView";
 import AdminLogin from "./components/auth/AdminLogin";
 import ManagerLogin from "./components/auth/ManagerLogin";
+import TeamLeadLogin from "./components/auth/TeamLeadLogin";
+import TeamLeadLayout from "./components/TeamLeadLayout";
+import KeyboardShortcuts from "./components/KeyboardShortcuts";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
 import { UserProvider } from "./contexts/UserContext";
 import { AISpreadsheetProvider } from "./contexts/AISpreadsheetContext";
+import UserSwitcher from "./components/UserSwitcher";
 
 function MainLayout() {
   const { isSignedIn } = useAuth();
@@ -77,6 +81,7 @@ function MainLayout() {
 export default function App() {
   return (
     <BrowserRouter>
+      <KeyboardShortcuts />
       {/* Operator portal -- separate layout, uses its own OperatorAuthContext */}
       <Routes>
         <Route path="/portal" element={<PortalLayout />}>
@@ -91,6 +96,8 @@ export default function App() {
               <Routes>
                 <Route path="admin" element={<AdminLogin />} />
                 <Route path="manager" element={<ManagerLogin />} />
+                <Route path="teamlead" element={<TeamLeadLogin />} />
+                <Route path="teamlead-dashboard/*" element={<TeamLeadLayout />} />
                 <Route path="*" element={<MainLayout />} />
               </Routes>
             </UserProvider>

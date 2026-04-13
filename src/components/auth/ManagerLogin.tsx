@@ -20,6 +20,9 @@ export default function ManagerLogin() {
         } else if (e.key.toLowerCase() === 'm') {
           e.preventDefault();
           navigate('/manager');
+        } else if (e.key.toLowerCase() === 't') {
+          e.preventDefault();
+          navigate('/teamlead');
         } else if (e.key.toLowerCase() === 'o') {
           e.preventDefault();
           navigate('/portal');

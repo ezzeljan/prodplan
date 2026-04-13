@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 // ─── Types ───
-export type UserRole = 'admin' | 'manager' | 'operator';
+export type UserRole = 'admin' | 'manager' | 'teamlead' | 'operator';
 
 export interface AppUser {
     id: string;
@@ -17,6 +17,7 @@ interface UserContextType {
     switchUser: (userId: string) => void;
     isAdmin: boolean;
     isManager: boolean;
+    isTeamLead: boolean;
     isOperator: boolean;
     canEdit: boolean;
     canViewAll: boolean;
@@ -26,6 +27,7 @@ interface UserContextType {
 const DEMO_USERS: AppUser[] = [
     { id: 'admin-1', name: 'Admin User', email: 'admin@lifewood.ph', role: 'admin' },
     { id: 'mgr-1', name: 'Project Manager', email: 'manager@lifewood.ph', role: 'manager' },
+    { id: 'tl-1', name: 'Team Lead', email: 'teamlead@lifewood.ph', role: 'teamlead' },
     { id: 'op-1', name: 'Maria Santos', email: 'maria@lifewood.ph', role: 'operator' },
     { id: 'op-2', name: 'John Reyes', email: 'john@lifewood.ph', role: 'operator' },
     { id: 'op-3', name: 'Ana Garcia', email: 'ana@lifewood.ph', role: 'operator' },
@@ -51,9 +53,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     const isAdmin = currentUser.role === 'admin';
     const isManager = currentUser.role === 'manager';
+    const isTeamLead = currentUser.role === 'teamlead';
     const isOperator = currentUser.role === 'operator';
     const canEdit = isAdmin || isManager;
-    const canViewAll = isAdmin || isManager;
+    const canViewAll = isAdmin || isManager || isTeamLead;
 
     return (
         <UserContext.Provider value={{
@@ -62,6 +65,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             switchUser,
             isAdmin,
             isManager,
+            isTeamLead,
             isOperator,
             canEdit,
             canViewAll,
