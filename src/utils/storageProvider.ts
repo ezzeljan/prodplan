@@ -3,6 +3,31 @@ import { User, Role } from '../types/auth';
 
 const API_URL = 'http://localhost:8080/api';
 
+const emptySpreadsheetData = { columns: [], rows: [], merges: [] };
+
+const normalizeProject = (project: Partial<UnifiedProject> | undefined): UnifiedProject | undefined => {
+    if (!project || !project.id || !project.name) return undefined;
+
+    return {
+        id: String(project.id),
+        name: project.name || 'Untitled Project',
+        overview: project.overview || '',
+        goal: typeof project.goal === 'number' ? project.goal : 0,
+        unit: project.unit || '',
+        startDate: project.startDate || new Date().toLocaleDateString('en-CA'),
+        endDate: project.endDate || new Date().toLocaleDateString('en-CA'),
+        projectManager: project.projectManager,
+        operators: Array.isArray(project.operators) ? project.operators : [],
+        resources: Array.isArray(project.resources) ? project.resources : [],
+        createdAt: project.createdAt || new Date().toISOString(),
+        updatedAt: project.updatedAt || project.createdAt || new Date().toISOString(),
+        spreadsheetData: project.spreadsheetData || emptySpreadsheetData,
+        googleSheetUrl: project.googleSheetUrl,
+        status: project.status || 'active',
+        outputs: Array.isArray(project.outputs) ? project.outputs : [],
+    };
+};
+
 export interface StorageProvider {
     // Projects
     saveProject(project: UnifiedProject, adminEmail?: string, adminPin?: string): Promise<void>;
@@ -29,15 +54,22 @@ export interface StorageProvider {
 
 class BackendProvider implements StorageProvider {
     async saveProject(project: UnifiedProject, adminEmail?: string, adminPin?: string): Promise<void> {
-        const response = await fetch(`${API_URL}/projects?adminEmail=${encodeURIComponent(adminEmail || '')}&adminPin=${encodeURIComponent(adminPin || '')}`, {
+        const response = await fetch(`${API_URL}/projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name: project.name,
                 description: project.overview || '',
-                projectManagerId: project.projectManager?.id,
-                adminEmail,
-                adminPin
+                teamLeadId: project.projectManager?.id ? Number(project.projectManager.id) : null,
+                status: project.status,
+                goal: project.goal,
+                unit: project.unit,
+                startDate: project.startDate,
+                endDate: project.endDate,
+                googleSheetUrl: project.googleSheetUrl,
+                spreadsheetData: project.spreadsheetData,
+                callerEmail: adminEmail,
+                callerPin: adminPin
             })
         });
         if (!response.ok) throw new Error('Failed to save project');
@@ -46,19 +78,20 @@ class BackendProvider implements StorageProvider {
     async getProject(id: string): Promise<UnifiedProject | undefined> {
         const response = await fetch(`${API_URL}/projects/${id}`);
         if (!response.ok) return undefined;
-        return response.json();
+        return normalizeProject(await response.json());
     }
 
     async getAllProjects(pmId?: string, operatorId?: string): Promise<UnifiedProject[]> {
         let url = `${API_URL}/projects`;
         const params = new URLSearchParams();
-        if (pmId) params.append('projectManagerId', pmId);
+        if (pmId) params.append('teamLeadId', pmId);
         if (operatorId) params.append('operatorId', operatorId);
         if (params.toString()) url += `?${params.toString()}`;
 
         const response = await fetch(url);
         if (!response.ok) return [];
-        return response.json();
+        const data = await response.json();
+        return Array.isArray(data) ? data.map(normalizeProject).filter(Boolean) as UnifiedProject[] : [];
     }
 
     async deleteProject(id: string, adminEmail?: string, adminPin?: string): Promise<void> {
@@ -74,10 +107,13 @@ class BackendProvider implements StorageProvider {
             body.adminEmail = adminEmail;
             body.adminPin = adminPin;
         }
+        if (typeof body.projectManagerId !== 'undefined') {
+            delete body.projectManagerId;
+        }
 
         // Handle projectManager nested object mapping to ID for backend
         if (updates.projectManager && typeof updates.projectManager === 'object') {
-            body.projectManagerId = (updates.projectManager as any).id;
+            body.teamLeadId = Number((updates.projectManager as any).id);
         }
 
         const response = await fetch(`${API_URL}/projects/${id}`, {
@@ -159,7 +195,7 @@ class BackendProvider implements StorageProvider {
         const response = await fetch(`${API_URL}/projects/${projectId}?callerEmail=${encodeURIComponent(callerEmail)}&callerPin=${encodeURIComponent(callerPin)}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ projectManagerId: teamLeadId, callerEmail, callerPin })
+            body: JSON.stringify({ teamLeadId: Number(teamLeadId), callerEmail, callerPin })
         });
         if (!response.ok) throw new Error('Failed to assign team lead');
     }

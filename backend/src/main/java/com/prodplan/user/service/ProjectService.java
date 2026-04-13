@@ -7,7 +7,10 @@ import com.prodplan.user.repository.ProjectRepository;
 import com.prodplan.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class ProjectService {
@@ -20,16 +23,31 @@ public class ProjectService {
         this.userRepository = userRepository;
     }
 
-    public Project createProject(String name, String description, Long teamLeadId) {
+    public Project createProject(
+            String name,
+            String description,
+            Long teamLeadId,
+            String status,
+            Integer goal,
+            String unit,
+            LocalDate startDate,
+            LocalDate endDate,
+            String googleSheetUrl,
+            Map<String, Object> spreadsheetData
+    ) {
         System.out.println("[DEBUG] createProject name=" + name + ", teamLeadId=" + teamLeadId);
-        User teamLead = userRepository.findById(teamLeadId)
-                .orElseThrow(() -> new IllegalArgumentException("Team Lead not found"));
+        User teamLead = null;
+        if (teamLeadId != null) {
+            teamLead = userRepository.findById(teamLeadId)
+                    .orElseThrow(() -> new IllegalArgumentException("Team Lead not found"));
 
-        if (teamLead.getRole() != Role.TEAM_LEAD) {
-            throw new IllegalArgumentException("User is not a Team Lead");
+            if (teamLead.getRole() != Role.TEAM_LEAD) {
+                throw new IllegalArgumentException("User is not a Team Lead");
+            }
         }
 
         Project project = new Project(name, description, teamLead);
+        applyProjectMetadata(project, status, goal, unit, startDate, endDate, googleSheetUrl, spreadsheetData);
         try {
             return projectRepository.save(project);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
@@ -39,6 +57,10 @@ public class ProjectService {
 
     public List<Project> getAllProjects() {
         return projectRepository.findAll();
+    }
+
+    public Optional<Project> getProjectById(Long id) {
+        return projectRepository.findById(id);
     }
 
     public List<Project> getProjectsByTeamLead(Long teamLeadId) {
@@ -106,6 +128,12 @@ public class ProjectService {
                 });
     }
 
+    public void deleteProject(Long id) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        projectRepository.delete(project);
+    }
+
     public boolean isManagerOfProject(Long userId, Long projectId) {
         if (userId == null || projectId == null) return false;
         return projectRepository.findById(projectId)
@@ -113,7 +141,19 @@ public class ProjectService {
                 .orElse(false);
     }
 
-    public Project updateProject(Long id, String name, String description, Long teamLeadId) {
+    public Project updateProject(
+            Long id,
+            String name,
+            String description,
+            Long teamLeadId,
+            String status,
+            Integer goal,
+            String unit,
+            LocalDate startDate,
+            LocalDate endDate,
+            String googleSheetUrl,
+            Map<String, Object> spreadsheetData
+    ) {
         System.out.println("[DEBUG] updateProject id=" + id + ", teamLeadId=" + teamLeadId);
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
@@ -132,10 +172,31 @@ public class ProjectService {
             // This is useful for name/description updates only
         }
 
+        applyProjectMetadata(project, status, goal, unit, startDate, endDate, googleSheetUrl, spreadsheetData);
+
         try {
             return projectRepository.save(project);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             throw new IllegalArgumentException("Database error: could not update project. Check for duplicate names.");
         }
+    }
+
+    private void applyProjectMetadata(
+            Project project,
+            String status,
+            Integer goal,
+            String unit,
+            LocalDate startDate,
+            LocalDate endDate,
+            String googleSheetUrl,
+            Map<String, Object> spreadsheetData
+    ) {
+        if (status != null) project.setStatus(status);
+        if (goal != null) project.setGoal(goal);
+        if (unit != null) project.setUnit(unit);
+        if (startDate != null) project.setStartDate(startDate);
+        if (endDate != null) project.setEndDate(endDate);
+        if (googleSheetUrl != null) project.setGoogleSheetUrl(googleSheetUrl);
+        if (spreadsheetData != null) project.setSpreadsheetData(spreadsheetData);
     }
 }

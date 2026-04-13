@@ -275,6 +275,7 @@ export default function ProjectsPage() {
                             {paginated.map((project) => {
                                 const statusColor = getStatusColor(project.status);
                                 const daysLeft = getDaysRemaining(project.endDate);
+                                const resourceCount = (project.resources || []).length;
 
                                 return (
                                     <motion.div
@@ -369,11 +370,11 @@ export default function ProjectsPage() {
                                             <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
                                                 <span className="flex items-center gap-1.5">
                                                     <Users className="w-3.5 h-3.5" />
-                                                    {project.resources.length} operator{project.resources.length !== 1 ? 's' : ''}
+                                                    {resourceCount} operator{resourceCount !== 1 ? 's' : ''}
                                                 </span>
                                                 <span className="flex items-center gap-1.5">
                                                     <Target className="w-3.5 h-3.5" />
-                                                    {project.goal.toLocaleString()} {project.unit}
+                                                    {(project.goal || 0).toLocaleString()} {project.unit || ''}
                                                 </span>
                                             </div>
                                         </div>

@@ -112,7 +112,19 @@ public class UserController {
                 System.out.println("[DEBUG] Assigning user to project: " + targetProject.getName());
                 try {
                     if (createdUser.getRole() == Role.TEAM_LEAD) {
-                        projectService.updateProject(targetProject.getId(), null, null, createdUser.getId());
+                        projectService.updateProject(
+                                targetProject.getId(),
+                                null,
+                                null,
+                                createdUser.getId(),
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null
+                        );
                     } else if (createdUser.getRole() == Role.OPERATOR) {
                         projectService.assignOperator(targetProject.getId(), createdUser.getId());
                     }
