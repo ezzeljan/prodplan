@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { storage } from '../utils/storageProvider';
 import { User, Role } from '../types/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 interface TeamManagementModalProps {
     projectId: string;
@@ -27,6 +28,7 @@ interface TeamManagementModalProps {
 }
 
 export default function TeamManagementModal({ projectId, projectTitle, isOpen, onClose }: TeamManagementModalProps) {
+    const { authSession } = useAuth();
     const [operators, setOperators] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
@@ -69,12 +71,11 @@ export default function TeamManagementModal({ projectId, projectTitle, isOpen, o
         setError('');
         setSuccess('');
 
-        const session = sessionStorage.getItem('manager-session') || sessionStorage.getItem('admin-session');
-        if (!session) {
+        if (!authSession) {
             setError('Auth session expired. Please login again.');
             return;
         }
-        const { email: callerEmail, pin: callerPin } = JSON.parse(session);
+        const { email: callerEmail, pin: callerPin } = authSession;
 
         setLoading(true);
         try {
@@ -99,9 +100,8 @@ export default function TeamManagementModal({ projectId, projectTitle, isOpen, o
     };
 
     const handleRemoveOperator = async (operatorId: string) => {
-        const session = sessionStorage.getItem('manager-session') || sessionStorage.getItem('admin-session');
-        if (!session) return;
-        const { email: callerEmail, pin: callerPin } = JSON.parse(session);
+        if (!authSession) return;
+        const { email: callerEmail, pin: callerPin } = authSession;
 
         if (!confirm('Are you sure you want to remove this operator from the team?')) return;
 

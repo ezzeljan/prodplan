@@ -19,7 +19,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_KEY = 'prodplan-auth';
-const SESSION_KEY = 'admin-session';
+const SESSION_KEY = 'teamlead-session';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [authSession, setAuthSession] = useState<AuthSession | null>(() => {

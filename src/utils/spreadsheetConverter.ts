@@ -70,11 +70,67 @@ export function projectDataToSpreadsheet(project: ProjectData): SpreadsheetData 
     const dataRows: SpreadsheetCell[][] = [];
     let prevDate = '';
 
+    /**
+     * Build a lookup map from every key the AI put in targetData → the
+     * canonical resource name stored in project.resources.
+     *
+     * The AI often abbreviates names (e.g. "doms" for "Dominic Santos")
+     * or uses a different casing. We match greedily:
+     *   1. Exact match
+     *   2. Case-insensitive exact match
+     *   3. Resource name starts-with the AI key (case-insensitive)
+     *   4. AI key is a substring of the resource name (case-insensitive)
+     * The first match wins. Unresolved AI keys are kept as-is (new resource).
+     */
+    const buildResourceAliasMap = (
+        targetData: Record<string, Record<string, number>>,
+        resources: string[]
+    ): Map<string, string> => {
+        const allAiKeys = new Set<string>();
+        Object.values(targetData).forEach(dayMap =>
+            Object.keys(dayMap).forEach(k => allAiKeys.add(k))
+        );
+
+        const aliasMap = new Map<string, string>();
+        const lowerResources = resources.map(r => r.toLowerCase());
+
+        for (const aiKey of allAiKeys) {
+            const aiLower = aiKey.toLowerCase();
+
+            // 1. Exact match
+            if (resources.includes(aiKey)) { aliasMap.set(aiKey, aiKey); continue; }
+            // 2. Case-insensitive exact
+            const exactIdx = lowerResources.indexOf(aiLower);
+            if (exactIdx !== -1) { aliasMap.set(aiKey, resources[exactIdx]); continue; }
+            // 3. Resource starts with AI key
+            const startsIdx = lowerResources.findIndex(r => r.startsWith(aiLower));
+            if (startsIdx !== -1) { aliasMap.set(aiKey, resources[startsIdx]); continue; }
+            // 4. AI key is substring of resource name
+            const subIdx = lowerResources.findIndex(r => r.includes(aiLower));
+            if (subIdx !== -1) { aliasMap.set(aiKey, resources[subIdx]); continue; }
+            // 5. No match — keep as-is (will be treated as an extra resource row)
+            aliasMap.set(aiKey, aiKey);
+        }
+        return aliasMap;
+    };
+
     if (project.targetData) {
         const sortedDates = Object.keys(project.targetData).sort();
-        
+        const aliasMap = buildResourceAliasMap(project.targetData, project.resources);
+
+        // Build a per-date map keyed by canonical resource name
+        const resolvedTargetData: Record<string, Record<string, number>> = {};
         for (const date of sortedDates) {
-            const dateTargets = project.targetData[date];
+            resolvedTargetData[date] = {};
+            for (const [aiKey, value] of Object.entries(project.targetData[date])) {
+                const canonical = aliasMap.get(aiKey) ?? aiKey;
+                // Sum if multiple AI keys map to the same resource
+                resolvedTargetData[date][canonical] = (resolvedTargetData[date][canonical] ?? 0) + value;
+            }
+        }
+
+        for (const date of sortedDates) {
+            const dateTargets = resolvedTargetData[date];
             for (const resource of project.resources) {
                 const target = dateTargets[resource] ?? 0;
                 const row: SpreadsheetCell[] = Array(numCols).fill(null).map(() => ({ value: '' }));

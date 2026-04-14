@@ -260,12 +260,10 @@ export default function AdminDashboard() {
     };
 
     const handleDeleteUser = async (id: string) => {
-        const adminSession = sessionStorage.getItem('admin-session');
-        if (!adminSession) return;
-        const admin = JSON.parse(adminSession);
+        if (!authSession) return;
 
         try {
-            await storage.deleteUser(id, admin.email, admin.pin);
+            await storage.deleteUser(id, authSession.email, authSession.pin);
             setDeleteConfirmId(null);
             await loadUsers();
         } catch (err) {

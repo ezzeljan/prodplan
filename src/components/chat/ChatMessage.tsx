@@ -214,14 +214,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 {/* Action button for Generated Files */}
                 {msg.type === "file" && msg.fileData && !isStreaming && (
                     <div className="space-y-2">
+                        {/* Download button — disabled if buffer was lost after a page refresh */}
                         <button
-                            onClick={() =>
-                                onDownload?.(msg.fileData!.name, msg.fileData!.buffer)
-                            }
-                            className="flex items-center gap-3 p-4 rounded-xl w-full transition-opacity text-left hover:opacity-90"
+                            onClick={() => {
+                                if (msg.fileData!.buffer) {
+                                    onDownload?.(msg.fileData!.name, msg.fileData!.buffer);
+                                }
+                            }}
+                            disabled={!msg.fileData.buffer}
+                            className="flex items-center gap-3 p-4 rounded-xl w-full transition-opacity text-left"
                             style={{
-                                backgroundColor: "#FFC370",
+                                backgroundColor: msg.fileData.buffer ? "#FFC370" : "#d4a853",
                                 border: "1px solid #FFB347",
+                                opacity: msg.fileData.buffer ? 1 : 0.55,
+                                cursor: msg.fileData.buffer ? "pointer" : "not-allowed",
                             }}
                         >
                             <div
@@ -235,7 +241,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                     {msg.fileData.name}
                                 </p>
                                 <p className="text-xs" style={{ color: "#046241" }}>
-                                    Click to download
+                                    {msg.fileData.buffer ? "Click to download" : "File download unavailable after refresh — use View in Spreadsheet"}
                                 </p>
                             </div>
                             <Download className="w-5 h-5 shrink-0" style={{ color: "#133020" }} />

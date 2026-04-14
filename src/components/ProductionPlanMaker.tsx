@@ -110,7 +110,13 @@ const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant
           ALWAYS use the bracket syntax: 'DailyProductionTable[Column Name]'. For example: 'SUM(DailyProductionTable[Target])'.
           Use {rowIndex} for relative row references in Plan/Pivot.
           
-          Once you have the core project details (1-6), you MUST FIRST present the full architecture to the user using well-structured Markdown tables that mirror the exact structure of the columns you will generate. Use clear headings with emojis like "📊 1. Daily Output of [Project Name]", "📈 2. [Project Name] Production Plan", "📊 3. Pivot Tables", and "🎯 4. Summary". Format the tables beautifully. Ensure that the 'Target' field is explicitly displayed as a column in the DailyProductionTable, and populate the table with realistic example values for all fields (apply the **LPB method (Learning, Performance, Breakthrough)** for target distribution: targets should increase gradually over the timeline instead of being uniform. Ensure the sum of these daily targets still matches the **Overall Goal** exactly).
+          Once you have the core project details (1-6), you MUST FIRST present the full architecture to the user using well-structured Markdown tables that mirror the exact structure of the columns you will generate. Use clear headings with emojis like "📊 1. Daily Output of [Project Name]", "📈 2. [Project Name] Production Plan", "📊 3. Pivot Tables", and "🎯 4. Summary". Format the tables beautifully. Ensure that the 'Target' field is explicitly displayed as a column in the DailyProductionTable.
+
+          CRITICAL LPB TARGET RULE — apply this without exception:
+          - LPB stands for Learning → Performing → Breakthrough. Operators start at a LOW daily target (e.g. 1 or a very small number) in the first days, gradually ramp up week by week through the Performing phase, and reach or surpass the overall goal pace in the Breakthrough phase.
+          - The per-day, per-operator 'Target' column MUST begin very low (e.g. 1) and increase gradually over the timeline. Do NOT make targets uniform or flat. Do NOT start at a high value.
+          - You MUST populate the 'targetData' object with the exact per-day, per-operator targets that follow this LPB ramp-up. The targets in the Markdown table preview and the generated Excel file MUST match exactly.
+          - Do NOT add a constraint that daily targets must sum to the Overall Goal. The Overall Goal is a project-level KPI, not a rolling sum of daily targets. Daily targets represent per-operator daily capacity benchmarks that ramp up over time.
           
           CRITICAL RULES FOR VISUALIZED TABLES:
           - The 'Actual Output' (or 'Actual') columns MUST remain entirely empty in the example tables.
@@ -120,7 +126,7 @@ const SYSTEM_INSTRUCTION = `You are a professional Production Planning Assistant
           
           CRITICAL: DO NOT call the 'generate_production_plan' tool immediately. You MUST present the tables and explicitly ask the user for confirmation (e.g., "Does this structure look good? Would you like me to generate the Excel file?").
           
-          ONLY AFTER the user confirms the structure (and makes no further adjustments) should you call the 'generate_production_plan' tool to generate the Excel file. (Ensure the 'dailyColumns' includes the Target column with the exact key 'target'). YOU MUST populate the 'targetData' array with the exact per-day, per-operator targets from your proposed LPB Markdown schedule so the Excel file exactly matches the chat preview. Ensure the output is valid JSON without trailing commas.
+          ONLY AFTER the user confirms the structure (and makes no further adjustments) should you call the 'generate_production_plan' tool to generate the Excel file. Ensure the 'dailyColumns' includes the Target column with the exact key 'target'. YOU MUST populate the 'targetData' object with the exact per-day, per-operator targets from your proposed LPB Markdown schedule so the Excel file exactly matches the chat preview. The 'targetData' keys for each date MUST exactly match the strings in the 'resources' array. Ensure the output is valid JSON without trailing commas.
 
           IMPORTANT: You are a specialized Production Plan Agent. You must ONLY respond to queries related to production planning, project scheduling, and Excel generation for these plans. 
           If a user asks about unrelated topics (e.g., weather, general knowledge, jokes, other software), politely decline and redirect them back to production planning.
@@ -540,33 +546,15 @@ export default function ProductionPlanMaker() {
     textareaRef.current?.focus();
   };
 
-  const handleStartProject = async (projectName: string) => {
+  const handleStartProject = async (projectName: string, projectId: string) => {
     setCurrentProjectName(projectName);
-    const projectId = `proj-${Date.now()}`;
     setLastSavedProjectId(projectId);
     setIsProjectStarted(true);
-
-    const initialProject: UnifiedProject = {
-      id: projectId,
-      name: projectName,
-      goal: 0,
-      unit: "",
-      startDate: new Date().toLocaleDateString("en-CA"),
-      endDate: new Date().toLocaleDateString("en-CA"),
-      resources: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      spreadsheetData: { columns: [], rows: [], merges: [] },
-      status: "draft",
-      outputs: [],
-    };
-
-    await storage.saveProject(initialProject);
 
     const initialMsg: Message = {
       id: Date.now().toString(),
       role: "agent",
-      content: `I've created the project folder for **${projectName}**. I'm now focused exclusively on this workspace. \n\nPlease provide the project details (Goal, Dates, Resources, etc.) or upload an instruction file to begin building the plan.`,
+      content: `I'm now focused on **${projectName}**. \n\nPlease provide the project details (Goal, Dates, Resources, etc.) or upload an instruction file to begin building the plan.`,
     };
     setMessages([initialMsg]);
 
@@ -808,7 +796,11 @@ export default function ProductionPlanMaker() {
             let savedProjectId = "";
             try {
               const spreadsheetData = projectDataToSpreadsheet(projectData);
-              savedProjectId = lastSavedProjectId || `proj-${Date.now()}`;
+              // Read project ID directly from the URL param (avoids stale React state closure).
+              // Fall back to state value, then a temporary local ID.
+              const paramId = searchParams.get("projectId");
+              savedProjectId = paramId || lastSavedProjectId || `proj-${Date.now()}`;
+
               const unifiedProject: UnifiedProject = {
                 id: savedProjectId,
                 name: projectData.name,
@@ -825,31 +817,29 @@ export default function ProductionPlanMaker() {
                 outputs: [],
               };
 
-              // FIX: If we have a real DB project id (came from ?projectId= URL param,
-              // meaning the project already exists in the backend), use the dedicated
-              // spreadsheet update endpoint with the Team Lead's credentials.
-              // Using saveProject (POST) here would create a ghost duplicate project
-              // and leave the original project with empty spreadsheet data.
-              const session = sessionStorage.getItem("admin-session");
+              // Read the team lead's session credentials.
+              const session = sessionStorage.getItem("teamlead-session");
               const parsedSession = session ? JSON.parse(session) : null;
-              const isNumericId = savedProjectId && /^\d+$/.test(savedProjectId);
+              const callerEmail: string = parsedSession?.email || "";
+              const callerPin: string = parsedSession?.pin || "";
 
-              if (isNumericId && parsedSession?.email && parsedSession?.pin) {
+              if (!callerEmail || !callerPin) {
+                console.error("[SpreadsheetSave] No team lead credentials found in session. Cannot update spreadsheet.");
+              } else {
+                console.log(`[SpreadsheetSave] Saving spreadsheet_data for project id=${savedProjectId}`);
                 await storage.updateProjectSpreadsheet(
                   savedProjectId,
                   unifiedProject,
-                  parsedSession.email,
-                  parsedSession.pin
+                  callerEmail,
+                  callerPin
                 );
-              } else {
-                // New project started from chat (id is "proj-xxxxx"), safe to POST
-                await storage.saveProject(unifiedProject);
+                console.log("[SpreadsheetSave] spreadsheet_data saved successfully.");
               }
 
               setLastCreated(savedProjectId);
               setLastSavedProjectId(savedProjectId);
             } catch (convError) {
-              console.warn("Could not save to project storage:", convError);
+              console.error("[SpreadsheetSave] Could not save to project storage:", convError);
             }
           }
         }

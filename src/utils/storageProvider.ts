@@ -136,7 +136,7 @@ class BackendProvider implements StorageProvider {
             body: JSON.stringify({
                 name: project.name,
                 status: project.status,
-                goal: project.goal,
+                goal: project.goal != null ? Math.round(Number(project.goal)) : null,
                 unit: project.unit,
                 startDate: project.startDate,
                 endDate: project.endDate,
@@ -146,7 +146,11 @@ class BackendProvider implements StorageProvider {
                 callerPin,
             })
         });
-        if (!response.ok) throw new Error('Failed to update project spreadsheet');
+        if (!response.ok) {
+            let errMsg = `HTTP ${response.status}`;
+            try { const body = await response.json(); errMsg += `: ${JSON.stringify(body)}`; } catch { }
+            throw new Error(`Failed to update project spreadsheet — ${errMsg}`);
+        }
     }
 
     async saveUser(user: Omit<User, 'id'> & { manualPin?: string; projectId?: string; projectTitle?: string }, callerEmail: string, callerPin: string): Promise<User> {

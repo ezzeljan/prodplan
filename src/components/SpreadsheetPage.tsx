@@ -60,6 +60,14 @@ export default function SpreadsheetPage() {
         if (!project?.spreadsheetData) return null;
         const source = project.spreadsheetData;
 
+        // Treat the default empty scaffold (rows:[], columns:[], merges:[]) as not-yet-generated
+        const isEmpty =
+            Array.isArray((source as any).rows) &&
+            (source as any).rows.length === 0 &&
+            Array.isArray((source as any).columns) &&
+            (source as any).columns.length === 0;
+        if (isEmpty) return null;
+
         if (!isOperator) return source;
 
         return filterSpreadsheetForOperator(source, currentUser?.name || '');
@@ -79,7 +87,7 @@ export default function SpreadsheetPage() {
         );
     }
 
-    if (notFound || !activeData) {
+    if (notFound) {
         return (
             <div className="h-full flex items-center justify-center gradient-bg">
                 <div className="flex flex-col items-center gap-4 text-center">
@@ -90,6 +98,37 @@ export default function SpreadsheetPage() {
                     <p className="text-sm text-[var(--text-secondary)] max-w-md">
                         This project may have been deleted or the link is invalid.
                     </p>
+                    <button
+                        onClick={() => navigate(projectsRoute)}
+                        className="glass-btn text-sm flex items-center gap-2 mt-2"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Projects
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (!activeData) {
+        return (
+            <div className="h-full flex items-center justify-center gradient-bg">
+                <div className="flex flex-col items-center gap-4 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
+                        <Lock className="w-8 h-8 text-[var(--text-muted)]" />
+                    </div>
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">Spreadsheet not generated yet</h2>
+                    <p className="text-sm text-[var(--text-secondary)] max-w-md">
+                        The AI plan for <strong>{project?.name}</strong> hasn't been generated yet. Go to the AI Agent chat and generate the production plan first.
+                    </p>
+                    {isTeamLead && project && (
+                        <button
+                            onClick={() => navigate(`/teamlead-dashboard/plan?projectId=${project.id}`)}
+                            className="glass-btn text-sm flex items-center gap-2 mt-2"
+                        >
+                            Go to AI Agent
+                        </button>
+                    )}
                     <button
                         onClick={() => navigate(projectsRoute)}
                         className="glass-btn text-sm flex items-center gap-2 mt-2"

@@ -31,18 +31,30 @@ export const loadSessions = (): ChatSession[] => {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return [];
         const sessions: ChatSession[] = JSON.parse(raw);
+        // Restore fileData name but clear the buffer (buffer can't be serialized)
         return sessions.map(s => ({
             ...s,
-            messages: s.messages.map(m => ({ ...m, fileData: undefined }))
+            messages: s.messages.map(m => ({
+                ...m,
+                fileData: m.fileData?.name
+                    ? { name: m.fileData.name, buffer: undefined, url: m.fileData.url }
+                    : undefined
+            }))
         }));
     } catch { return []; }
 };
 
 export const saveSessions = (sessions: ChatSession[]) => {
     try {
+        // Strip the binary buffer but keep name + url so buttons survive a refresh
         const stripped = sessions.map(s => ({
             ...s,
-            messages: s.messages.map(m => ({ ...m, fileData: undefined }))
+            messages: s.messages.map(m => ({
+                ...m,
+                fileData: m.fileData?.name
+                    ? { name: m.fileData.name, buffer: undefined, url: m.fileData.url }
+                    : undefined
+            }))
         }));
         localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
     } catch { }

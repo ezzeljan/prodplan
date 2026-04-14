@@ -45,7 +45,6 @@ export default function TeamLeadLayout() {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem('teamlead-session');
     logout();
     navigate('/teamlead');
   };

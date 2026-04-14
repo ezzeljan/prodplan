@@ -17,7 +17,14 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/projects")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*", methods = {
+    org.springframework.web.bind.annotation.RequestMethod.GET,
+    org.springframework.web.bind.annotation.RequestMethod.POST,
+    org.springframework.web.bind.annotation.RequestMethod.PUT,
+    org.springframework.web.bind.annotation.RequestMethod.PATCH,
+    org.springframework.web.bind.annotation.RequestMethod.DELETE,
+    org.springframework.web.bind.annotation.RequestMethod.OPTIONS
+})
 public class ProjectController {
 
     private final ProjectService projectService;
