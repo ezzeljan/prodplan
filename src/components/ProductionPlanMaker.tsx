@@ -824,7 +824,28 @@ export default function ProductionPlanMaker() {
                 status: "active",
                 outputs: [],
               };
-              await storage.saveProject(unifiedProject);
+
+              // FIX: If we have a real DB project id (came from ?projectId= URL param,
+              // meaning the project already exists in the backend), use the dedicated
+              // spreadsheet update endpoint with the Team Lead's credentials.
+              // Using saveProject (POST) here would create a ghost duplicate project
+              // and leave the original project with empty spreadsheet data.
+              const session = sessionStorage.getItem("admin-session");
+              const parsedSession = session ? JSON.parse(session) : null;
+              const isNumericId = savedProjectId && /^\d+$/.test(savedProjectId);
+
+              if (isNumericId && parsedSession?.email && parsedSession?.pin) {
+                await storage.updateProjectSpreadsheet(
+                  savedProjectId,
+                  unifiedProject,
+                  parsedSession.email,
+                  parsedSession.pin
+                );
+              } else {
+                // New project started from chat (id is "proj-xxxxx"), safe to POST
+                await storage.saveProject(unifiedProject);
+              }
+
               setLastCreated(savedProjectId);
               setLastSavedProjectId(savedProjectId);
             } catch (convError) {
@@ -1024,7 +1045,7 @@ export default function ProductionPlanMaker() {
                   onConfirm={(id) => handleConfirmStructure(id)}
                   onReject={(id) => handleModifyStructure(id)}
                   onDownload={(name, buf) => handleDownload(name, buf)}
-                  onViewProject={(id) => navigate(`/projects/${id}`)}
+                  onViewProject={(id) => navigate(`/teamlead-dashboard/projects/${id}`)}
                   lastSavedProjectId={lastSavedProjectId}
                 />
               ))}

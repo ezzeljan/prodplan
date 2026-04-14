@@ -17,11 +17,77 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
 import { UserProvider } from "./contexts/UserContext";
 import { AISpreadsheetProvider } from "./contexts/AISpreadsheetContext";
-import UserSwitcher from "./components/UserSwitcher";
 import DebugPage from "./components/DebugPage";
+import { Role } from "./types/auth";
+
+function getOperatorSession() {
+  if (typeof window === "undefined") return null;
+
+  const stored = sessionStorage.getItem("operator-session");
+  if (!stored) return null;
+
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
+function getHomeRoute(role?: Role | null) {
+  switch (role) {
+    case Role.ADMIN:
+      return "/dashboard";
+    case Role.TEAM_LEAD:
+      return "/teamlead-dashboard";
+    case Role.OPERATOR:
+      return "/portal";
+    default:
+      return "/portal";
+  }
+}
+
+function RoleLoginRedirect({ children }: { children: JSX.Element }) {
+  const { authSession } = useAuth();
+  const operatorSession = getOperatorSession();
+
+  if (operatorSession) {
+    return <Navigate to="/portal" replace />;
+  }
+
+  if (authSession) {
+    return <Navigate to={getHomeRoute(authSession.role)} replace />;
+  }
+
+  return children;
+}
+
+function RequireAppRole({
+  role,
+  children,
+}: {
+  role: Role;
+  children: JSX.Element;
+}) {
+  const { authSession } = useAuth();
+  const operatorSession = getOperatorSession();
+
+  if (operatorSession) {
+    return <Navigate to="/portal" replace />;
+  }
+
+  if (!authSession) {
+    return <Navigate to={role === Role.TEAM_LEAD ? "/teamlead" : "/admin"} replace />;
+  }
+
+  if (authSession.role !== role) {
+    return <Navigate to={getHomeRoute(authSession.role)} replace />;
+  }
+
+  return children;
+}
 
 function MainLayout() {
-  const { isSignedIn } = useAuth();
+  const { authSession, isSignedIn } = useAuth();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 768 : true,
@@ -50,6 +116,10 @@ function MainLayout() {
 
   if (!isSignedIn) {
     return <Navigate to="/portal" replace />;
+  }
+
+  if (authSession?.role !== Role.ADMIN) {
+    return <Navigate to={getHomeRoute(authSession?.role)} replace />;
   }
 
   return (
@@ -91,12 +161,40 @@ export default function App() {
 
                 <Route path="/debug" element={<DebugPage />} />
 
-                <Route path="/admin" element={<AdminLogin />} />
-                <Route path="/teamlead" element={<TeamLeadLogin />} />
-                <Route path="/teamlead-dashboard/*" element={<TeamLeadLayout />} />
+                <Route
+                  path="/admin"
+                  element={
+                    <RoleLoginRedirect>
+                      <AdminLogin />
+                    </RoleLoginRedirect>
+                  }
+                />
+                <Route
+                  path="/teamlead"
+                  element={
+                    <RoleLoginRedirect>
+                      <TeamLeadLogin />
+                    </RoleLoginRedirect>
+                  }
+                />
+                <Route
+                  path="/teamlead-dashboard/*"
+                  element={
+                    <RequireAppRole role={Role.TEAM_LEAD}>
+                      <TeamLeadLayout />
+                    </RequireAppRole>
+                  }
+                />
 
                 {/* Main app */}
-                <Route path="/*" element={<MainLayout />} />
+                <Route
+                  path="/*"
+                  element={
+                    <RequireAppRole role={Role.ADMIN}>
+                      <MainLayout />
+                    </RequireAppRole>
+                  }
+                />
               </Routes>
             </AISpreadsheetProvider>
           </ProjectProvider>

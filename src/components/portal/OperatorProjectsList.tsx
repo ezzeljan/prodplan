@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOperatorAuth } from '../../contexts/OperatorAuthContext';
 import { storage } from '../../utils/storageProvider';
-import { getOperatorProjects } from '../../utils/operatorMatcher';
 import type { UnifiedProject } from '../../utils/projectStorage';
 import { Loader2, FolderOpen, Calendar, LogOut, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -18,12 +17,19 @@ export default function OperatorProjectsList() {
         loadProjects();
     }, [operator]);
 
+    // FIX: Re-fetch projects whenever the operator tab regains focus.
+    // This ensures the list reflects assignments made while the tab was in the background.
+    useEffect(() => {
+        const handleFocus = () => loadProjects();
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [operator]);
+
     const loadProjects = async () => {
         if (!operator) return;
         setLoading(true);
         try {
-            const all = await storage.getAllProjects();
-            const mine = getOperatorProjects(all, operator.name);
+            const mine = await storage.getAllProjects(undefined, operator.id);
             setProjects(mine);
         } catch (err) {
             console.error('Failed to load projects:', err);

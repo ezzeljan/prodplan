@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
+import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import { Role as UserRole } from '../types/auth';
+import { useAuth } from './AuthContext';
 
 export interface AppUser {
     id: string;
@@ -11,7 +11,7 @@ export interface AppUser {
 }
 
 interface UserContextType {
-    currentUser: AppUser;
+    currentUser: AppUser | null;
     users: AppUser[];
     switchUser: (userId: string) => void;
     isAdmin: boolean;
@@ -21,33 +21,32 @@ interface UserContextType {
     canViewAll: boolean;
 }
 
-// Demo users
-const DEMO_USERS: AppUser[] = [
-    { id: 'admin-1', name: 'Admin User', email: 'admin@lifewood.ph', role: UserRole.ADMIN },
-    { id: 'tl-1', name: 'Team Lead', email: 'teamlead@lifewood.ph', role: UserRole.TEAM_LEAD },
-    { id: 'op-1', name: 'Maria Santos', email: 'maria@lifewood.ph', role: UserRole.OPERATOR },
-    // ... remaining operators
-];
-
-const STORAGE_KEY = 'production-plan-current-user';
-
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
-    const [currentUserId, setCurrentUserId] = useState<string>(() => {
-        return localStorage.getItem(STORAGE_KEY) || 'admin-1';
-    });
+    const { authSession } = useAuth();
 
-    const currentUser = DEMO_USERS.find(u => u.id === currentUserId) || DEMO_USERS[0];
+    const currentUser = useMemo<AppUser | null>(() => {
+        if (!authSession) {
+            return null;
+        }
 
-    const switchUser = (userId: string) => {
-        setCurrentUserId(userId);
-        localStorage.setItem(STORAGE_KEY, userId);
+        return {
+            id: authSession.id,
+            name: authSession.name,
+            email: authSession.email,
+            role: authSession.role,
+        };
+    }, [authSession]);
+
+    const switchUser = () => {
+        return;
     };
 
-    const isAdmin = currentUser.role === UserRole.ADMIN;
-    const isTeamLead = currentUser.role === UserRole.TEAM_LEAD;
-    const isOperator = currentUser.role === UserRole.OPERATOR;
+    const users = currentUser ? [currentUser] : [];
+    const isAdmin = currentUser?.role === UserRole.ADMIN;
+    const isTeamLead = currentUser?.role === UserRole.TEAM_LEAD;
+    const isOperator = currentUser?.role === UserRole.OPERATOR;
 
     const canEdit = isAdmin || isTeamLead;
     const canViewAll = isAdmin || isTeamLead;
@@ -55,7 +54,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     return (
         <UserContext.Provider value={{
             currentUser,
-            users: DEMO_USERS,
+            users,
             switchUser,
             isAdmin,
             isTeamLead,

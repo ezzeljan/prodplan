@@ -1,23 +1,20 @@
 import { useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 export default function KeyboardShortcuts() {
     const navigate = useNavigate();
-    const location = useLocation();
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if ((e.ctrlKey || e.metaKey) && e.altKey) {
-            const key = e.key.toLowerCase();
-            if (key === 'a') {
+            // Use e.code (not e.key) — layout-independent, fixes Ctrl+Alt on Windows (AltGr)
+            const code = e.code;
+            if (code === 'KeyA') {
                 e.preventDefault();
                 navigate('/admin');
-            } else if (key === 'm') {
-                e.preventDefault();
-                navigate('/manager');
-            } else if (key === 't') {
+            } else if (code === 'KeyT') {
                 e.preventDefault();
                 navigate('/teamlead');
-            } else if (key === 'o') {
+            } else if (code === 'KeyO') {
                 e.preventDefault();
                 navigate('/portal');
             }

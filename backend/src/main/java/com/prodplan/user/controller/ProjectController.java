@@ -30,7 +30,6 @@ public class ProjectController {
 
     @PostMapping
     public ResponseEntity<?> createProject(@RequestBody CreateProjectRequest request) {
-        // Authenticate the caller (Admin)
         Optional<User> callerOpt = userService.authenticate(request.callerEmail(), request.callerPin());
         if (callerOpt.isEmpty() || callerOpt.get().getRole() != Role.ADMIN) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only Admins can create projects"));
@@ -89,7 +88,6 @@ public class ProjectController {
         User caller = callerOpt.get();
         boolean isAuthorized = caller.getRole() == Role.ADMIN;
 
-        // Team Lead can assign operators if they are assigned to the project
         if (!isAuthorized && caller.getRole() == Role.TEAM_LEAD) {
             if (projectService.isManagerOfProject(caller.getId(), projectId)) {
                 isAuthorized = true;
@@ -122,7 +120,6 @@ public class ProjectController {
         User caller = callerOpt.get();
         boolean isAuthorized = caller.getRole() == Role.ADMIN;
 
-        // Team Lead can remove operators if they are assigned to the project
         if (!isAuthorized && caller.getRole() == Role.TEAM_LEAD) {
             if (projectService.isManagerOfProject(caller.getId(), projectId)) {
                 isAuthorized = true;
@@ -163,7 +160,6 @@ public class ProjectController {
     public ResponseEntity<?> updateProject(
             @PathVariable Long id,
             @RequestBody UpdateProjectRequest request) {
-        // Authenticate caller (Admin)
         Optional<User> callerOpt = userService.authenticate(request.callerEmail(), request.callerPin());
         if (callerOpt.isEmpty() || callerOpt.get().getRole() != Role.ADMIN) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Only Admins can update projects"));
@@ -180,6 +176,49 @@ public class ProjectController {
                     request.unit(),
                     request.startDate(),
                     request.endDate(),
+                    request.googleSheetUrl(),
+                    request.spreadsheetData()
+            );
+            return ResponseEntity.ok(ProjectResponse.from(project));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * FIX: Saves AI-generated spreadsheet data to an existing project.
+     * Requires caller to be an authenticated Team Lead or Admin.
+     * No project-manager relationship check — Team Leads access projects
+     * via their dashboard which already controls visibility, and project_manager_id
+     * may be NULL if the admin hasn't formally assigned the team lead yet.
+     */
+    @PatchMapping("/{id}/spreadsheet")
+    public ResponseEntity<?> updateSpreadsheet(
+            @PathVariable Long id,
+            @RequestBody UpdateSpreadsheetRequest request) {
+        Optional<User> callerOpt = userService.authenticate(request.callerEmail(), request.callerPin());
+        if (callerOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Authentication failed"));
+        }
+
+        User caller = callerOpt.get();
+        // Allow Admins and Team Leads — no manager relationship check needed.
+        // project_manager_id may be NULL and Team Leads reach this via their own dashboard.
+        if (caller.getRole() != Role.ADMIN && caller.getRole() != Role.TEAM_LEAD) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Insufficient permissions"));
+        }
+
+        try {
+            Project project = projectService.updateProject(
+                    id,
+                    request.name(),
+                    null,
+                    null,
+                    request.status(),
+                    request.goal(),
+                    request.unit(),
+                    request.startDate() != null ? LocalDate.parse(request.startDate()) : null,
+                    request.endDate() != null ? LocalDate.parse(request.endDate()) : null,
                     request.googleSheetUrl(),
                     request.spreadsheetData()
             );
@@ -217,6 +256,19 @@ public class ProjectController {
             String unit,
             LocalDate startDate,
             LocalDate endDate,
+            String googleSheetUrl,
+            Map<String, Object> spreadsheetData,
+            String callerEmail,
+            String callerPin
+    ) {}
+
+    public record UpdateSpreadsheetRequest(
+            String name,
+            String status,
+            Integer goal,
+            String unit,
+            String startDate,
+            String endDate,
             String googleSheetUrl,
             Map<String, Object> spreadsheetData,
             String callerEmail,

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { storage } from '../utils/storageProvider';
 import { hashPin, Operator } from '../utils/operatorStorage';
+import { Role } from '../types/auth';
 
 interface OperatorSession {
     id: string;
@@ -57,6 +58,10 @@ export const OperatorAuthProvider = ({ children }: { children: ReactNode }) => {
 
             if (!response.ok) {
                 return { success: false, error: data.error || 'Login failed' };
+            }
+
+            if (String(data.user.role).toUpperCase() !== Role.OPERATOR) {
+                return { success: false, error: 'Access denied. Operator credentials required.' };
             }
 
             const session: OperatorSession = {

@@ -81,32 +81,33 @@ public class UserController {
         }
 
         if (!isAuthorized) {
-            String errorMsg = caller.getRole() == Role.ADMIN ? 
+            String errorMsg = caller.getRole() == Role.ADMIN ?
                 "Admins can only create Team Leads. Operators must be created by Team Leads." :
                 "Insufficient permissions or invalid role creation.";
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", errorMsg));
         }
 
-    try {
-        System.out.println("[DEBUG] Creating user in service...");
-        User createdUser = userService.createUser(request.name(), request.email(), request.role(), request.manualPin());
-        System.out.println("[DEBUG] User created: " + createdUser.getId());
-        
-        // Integrated/Dynamic Project Assignment
-        Project targetProject = null;
-        if (request.projectTitle() != null && !request.projectTitle().isBlank()) {
-            targetProject = projectService.getOrCreateProject(request.projectTitle());
-        } else if (request.projectId() != null && !request.projectId().isBlank()) {
-            // Safely parse the projectId string to Long
-            try {
-                Long pId = Long.parseLong(request.projectId());
-                targetProject = projectService.getAllProjects().stream()
-                        .filter(p -> p.getId().equals(pId))
-                        .findFirst().orElse(null);
-            } catch (NumberFormatException e) {
-                // If not a valid Long, ignore it
+        try {
+            System.out.println("[DEBUG] Creating user in service...");
+            User createdUser = userService.createUser(request.name(), request.email(), request.role(), request.manualPin());
+            System.out.println("[DEBUG] User created: " + createdUser.getId());
+
+            // FIX: Always prefer projectId (exact DB lookup) over projectTitle (fuzzy name match).
+            // The old code checked projectTitle first, which caused operators to get assigned
+            // to a wrong or newly-created ghost project when the title had any mismatch.
+            Project targetProject = null;
+            if (request.projectId() != null && !request.projectId().isBlank()) {
+                try {
+                    Long pId = Long.parseLong(request.projectId());
+                    targetProject = projectService.getProjectById(pId).orElse(null);
+                } catch (NumberFormatException e) {
+                    System.out.println("[DEBUG] projectId is not a valid Long, falling back to projectTitle lookup.");
+                }
             }
-        }
+            // Only fall back to title lookup if projectId was missing or didn't resolve
+            if (targetProject == null && request.projectTitle() != null && !request.projectTitle().isBlank()) {
+                targetProject = projectService.getOrCreateProject(request.projectTitle());
+            }
 
             if (targetProject != null) {
                 System.out.println("[DEBUG] Assigning user to project: " + targetProject.getName());
@@ -135,6 +136,7 @@ public class UserController {
             } else {
                 System.out.println("[DEBUG] No target project for assignment.");
             }
+
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                     "message", "User created successfully",
                     "user", Map.of(
@@ -142,7 +144,7 @@ public class UserController {
                             "name", createdUser.getName(),
                             "email", createdUser.getEmail(),
                             "role", createdUser.getRole(),
-                            "pin", createdUser.getPin() // Return the PIN so admin can see it
+                            "pin", createdUser.getPin()
                     )
             ));
         } catch (IllegalArgumentException e) {

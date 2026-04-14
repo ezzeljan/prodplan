@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { AISpreadsheetProvider } from '../contexts/AISpreadsheetContext';
 import TeamLeadDashboard from './TeamLeadDashboard';
 import TeamLeadProjectsPage from './TeamLeadProjectsPage';
+import SpreadsheetPage from './SpreadsheetPage';
+import ProductionPlanMaker from './ProductionPlanMaker';
 import logo from '../assets/lifewood-logo.png';
 import icon from '../assets/icon.png';
 
@@ -100,7 +102,9 @@ export default function TeamLeadLayout() {
           className={`flex-1 py-6 flex flex-col gap-2 overflow-y-auto ${isExpanded ? "px-3" : "px-0"}`}
         >
           {navWithIcons.map((item) => {
-            const isActive = location.pathname === item.href;
+            const isActive = item.href === "/teamlead-dashboard/projects"
+              ? location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
+              : location.pathname === item.href;
             return (
               <Link
                 key={item.label}
@@ -205,7 +209,9 @@ export default function TeamLeadLayout() {
             </div>
             <div className="flex flex-col gap-2 p-4">
               {navWithIcons.map((item) => {
-                const isActive = location.pathname === item.href;
+                const isActive = item.href === "/teamlead-dashboard/projects"
+                  ? location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
+                  : location.pathname === item.href;
                 return (
                   <Link
                     key={item.label}
@@ -259,6 +265,17 @@ export default function TeamLeadLayout() {
           <Route path="projects" element={
             <AISpreadsheetProvider>
               <TeamLeadProjectsPage />
+            </AISpreadsheetProvider>
+          } />
+          <Route path="projects/:id" element={
+            <AISpreadsheetProvider>
+              <SpreadsheetPage />
+            </AISpreadsheetProvider>
+          } />
+          {/* Production Plan Maker — accessed via Talk to AI Agent button */}
+          <Route path="plan" element={
+            <AISpreadsheetProvider>
+              <ProductionPlanMaker />
             </AISpreadsheetProvider>
           } />
         </Routes>

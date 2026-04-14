@@ -14,7 +14,7 @@ import TeamManagementModal from './TeamManagementModal';
 export default function SpreadsheetPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { currentUser, isOperator, canEdit } = useUser();
+    const { currentUser, isAdmin, isTeamLead, isOperator, canEdit } = useUser();
     const [project, setProject] = useState<UnifiedProject | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
@@ -62,8 +62,11 @@ export default function SpreadsheetPage() {
 
         if (!isOperator) return source;
 
-        return filterSpreadsheetForOperator(source, currentUser.name);
-    }, [isOperator, currentUser.name, project]);
+        return filterSpreadsheetForOperator(source, currentUser?.name || '');
+    }, [isOperator, currentUser?.name, project]);
+
+    const projectsRoute = isTeamLead ? '/teamlead-dashboard/projects' : '/projects';
+    const canManageTeam = isAdmin || isTeamLead;
 
     if (loading) {
         return (
@@ -88,7 +91,7 @@ export default function SpreadsheetPage() {
                         This project may have been deleted or the link is invalid.
                     </p>
                     <button
-                        onClick={() => navigate('/projects')}
+                        onClick={() => navigate(projectsRoute)}
                         className="glass-btn text-sm flex items-center gap-2 mt-2"
                     >
                         <ArrowLeft className="w-4 h-4" />
@@ -105,7 +108,7 @@ export default function SpreadsheetPage() {
             <div className="flex items-center justify-between px-6 pt-4 pb-1 relative z-[50]">
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => navigate('/projects')}
+                        onClick={() => navigate(projectsRoute)}
                         className="glass-card flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 transition-colors cursor-pointer"
                     >
                         <ArrowLeft className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
@@ -125,15 +128,18 @@ export default function SpreadsheetPage() {
                                 </span>
                             </div>
 
-                            <button
-                                onClick={() => navigate(`/?projectId=${project.id}`)}
-                                className="glass-card flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--accent-primary)]/10 hover:border-[var(--accent-secondary)]/30 transition-all cursor-pointer group"
-                            >
-                                <MessageSquare className="w-3.5 h-3.5 text-[var(--accent-secondary)] group-hover:scale-110 transition-transform" />
-                                <span className="text-xs font-medium text-[var(--text-primary)]">Talk to AI Agent</span>
-                            </button>
+                            {/* Talk to AI Agent — Team Lead only, not Admin */}
+                            {isTeamLead && (
+                                <button
+                                    onClick={() => navigate(`/teamlead-dashboard/plan?projectId=${project.id}`)}
+                                    className="glass-card flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--accent-primary)]/10 hover:border-[var(--accent-secondary)]/30 transition-all cursor-pointer group"
+                                >
+                                    <MessageSquare className="w-3.5 h-3.5 text-[var(--accent-secondary)] group-hover:scale-110 transition-transform" />
+                                    <span className="text-xs font-medium text-[var(--text-primary)]">Talk to AI Agent</span>
+                                </button>
+                            )}
 
-                            {(canEdit || !isOperator) && (
+                            {canManageTeam && (
                                 <button
                                     onClick={() => setIsTeamModalOpen(true)}
                                     className="glass-card flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--accent-primary)]/10 hover:border-[var(--accent-secondary)]/30 transition-all cursor-pointer group"

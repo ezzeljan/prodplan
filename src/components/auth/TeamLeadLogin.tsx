@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useUser } from '../../contexts/UserContext';
 import { Role } from '../../types/auth';
 import { motion } from 'motion/react';
 import { Users, ArrowRight, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
@@ -9,17 +8,12 @@ import logo from '../../assets/lifewood-logo.png';
 
 export default function TeamLeadLogin() {
   const { login } = useAuth();
-  const { users, switchUser } = useUser();
   const navigate = useNavigate();
-
-
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  const teamLeads = users.filter(u => u.role.toUpperCase() === Role.TEAM_LEAD);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,15 +41,19 @@ export default function TeamLeadLogin() {
       }
 
       const userRoleLower = data.user.role.toUpperCase();
-      if (userRoleLower !== Role.TEAM_LEAD && userRoleLower !== Role.ADMIN) {
+      if (userRoleLower !== Role.TEAM_LEAD) {
         setError('Invalid team lead credentials.');
         setIsSubmitting(false);
         return;
       }
 
-      // Modernized AuthContext login
-      login({ email: data.user.email, pin: password });
-      switchUser(data.user.id.toString());
+      login({
+        id: data.user.id.toString(),
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role.toUpperCase() as Role,
+        pin: password,
+      });
       navigate('/teamlead-dashboard');
     } catch (err) {
       setError('Could not connect to the server.');
@@ -77,7 +75,6 @@ export default function TeamLeadLogin() {
             alt="Lifewood"
             className="h-10 w-auto object-contain mb-6"
           />
-
           <h1 className="text-xl font-bold text-zinc-900">Team Lead</h1>
           <p className="text-sm text-zinc-500 mt-1">Sign in to view all projects</p>
         </div>

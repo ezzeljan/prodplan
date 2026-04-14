@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useOperatorAuth } from '../../contexts/OperatorAuthContext';
 import { KeyRound, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -7,30 +6,9 @@ import logo from '../../assets/lifewood-logo.png';
 
 export default function OperatorLogin() {
     const { login } = useOperatorAuth();
-    const navigate = useNavigate();
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && e.altKey) {
-                if (e.key.toLowerCase() === 'a') {
-                    e.preventDefault();
-                    navigate('/admin');
-                } else if (e.key.toLowerCase() === 'm') {
-                    e.preventDefault();
-                    navigate('/manager');
-                } else if (e.key.toLowerCase() === 'o') {
-                    e.preventDefault();
-                    navigate('/portal');
-                }
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

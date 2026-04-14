@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useUser } from '../../contexts/UserContext';
 import { Role } from '../../types/auth';
 import { motion } from 'motion/react';
 import { Shield, ArrowRight, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
@@ -9,37 +8,13 @@ import logo from '../../assets/lifewood-logo.png';
 
 export default function AdminLogin() {
   const { login } = useAuth();
-  const { users, switchUser } = useUser();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.altKey) {
-        if (e.key.toLowerCase() === 'a') {
-          e.preventDefault();
-          navigate('/admin');
-        } else if (e.key.toLowerCase() === 'm') {
-          e.preventDefault();
-          navigate('/manager');
-        } else if (e.key.toLowerCase() === 't') {
-          e.preventDefault();
-          navigate('/teamlead');
-        } else if (e.key.toLowerCase() === 'o') {
-          e.preventDefault();
-          navigate('/portal');
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate]);
-
+  
   const [email, setEmail] = useState('lifewood@ph.com');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  const admins = users.filter(u => u.role === Role.ADMIN);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,8 +50,13 @@ export default function AdminLogin() {
       }
 
       // Updated login logic using modernized AuthContext
-      login({ email: data.user.email, pin: password });
-      switchUser(data.user.id.toString());
+      login({
+        id: data.user.id.toString(),
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role.toUpperCase() as Role,
+        pin: password,
+      });
       navigate('/dashboard');
     } catch (err) {
       setError('Could not connect to the server.');

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
 import { Role as UserRole } from '../types/auth';
-import { Users, ChevronDown, Shield, Briefcase, User, Check } from 'lucide-react';
+import { Users, ChevronDown, Shield, User, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const roleIcons: Record<string, React.ReactNode> = {
@@ -30,11 +30,12 @@ export default function UserSwitcher() {
     const roleColor = roleColors[role] || 'text-[var(--text-muted)]';
     const roleBg = roleBgColors[role] || 'bg-white/5';
     const RoleIcon = roleIcons[role] || <User className="w-3.5 h-3.5" />;
+    const canSwitch = users.length > 1;
 
     return (
         <div className="relative">
             <button
-                onClick={() => setOpen(!open)}
+                onClick={() => canSwitch && setOpen(!open)}
                 className="glass-card flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-white/10 transition-colors"
             >
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${roleBg}`}>
@@ -46,11 +47,13 @@ export default function UserSwitcher() {
                     <p className="text-xs font-semibold text-[var(--text-primary)] leading-tight">{currentUser?.name || 'Unknown'}</p>
                     <p className="text-[10px] text-[var(--text-muted)] capitalize">{role.toLowerCase()}</p>
                 </div>
-                <ChevronDown className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${open ? 'rotate-180' : ''}`} />
+                {canSwitch && (
+                    <ChevronDown className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${open ? 'rotate-180' : ''}`} />
+                )}
             </button>
 
             <AnimatePresence>
-                {open && (
+                {open && canSwitch && (
                     <motion.div
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -71,7 +74,7 @@ export default function UserSwitcher() {
                             <button
                                 key={user.id}
                                 onClick={() => { switchUser(user.id); setOpen(false); }}
-                                className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2.5 ${currentUser.id === user.id
+                                className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2.5 ${currentUser?.id === user.id
                                     ? 'bg-[var(--accent-primary)]/15 text-[var(--text-primary)]'
                                     : 'text-[var(--text-secondary)] hover:bg-white/5'
                                     }`}
@@ -85,7 +88,7 @@ export default function UserSwitcher() {
                                     <p className="text-xs font-medium truncate">{user.name}</p>
                                     <p className="text-[10px] text-[var(--text-muted)] capitalize">{user.role}</p>
                                 </div>
-                                {currentUser.id === user.id && (
+                                {currentUser?.id === user.id && (
                                     <Check className="w-3.5 h-3.5 text-[var(--accent-secondary)]" />
                                 )}
                             </button>

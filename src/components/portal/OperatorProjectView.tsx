@@ -31,7 +31,14 @@ export default function OperatorProjectView() {
         try {
             const p = await storage.getProject(projectId);
             if (p) {
-                setProject(p);
+                // Route guard: verify the logged-in operator is actually assigned to this project.
+                // This prevents accessing a project by typing its URL directly.
+                const assignedIds = (p.operators ?? []).map((op: any) => String(op.id));
+                if (!operator || !assignedIds.includes(String(operator.id))) {
+                    setNotFound(true);
+                } else {
+                    setProject(p);
+                }
             } else {
                 setNotFound(true);
             }
@@ -77,7 +84,7 @@ export default function OperatorProjectView() {
                     </div>
                     <h2 className="text-lg font-semibold text-[var(--text-primary)]">Project not found</h2>
                     <p className="text-sm text-[var(--text-secondary)] max-w-md">
-                        This project may have been deleted or the link is invalid.
+                        This project doesn't exist, or you don't have access to it.
                     </p>
                     <button
                         onClick={() => navigate('/portal')}

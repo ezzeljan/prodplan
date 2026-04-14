@@ -131,6 +131,11 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
 
     const loadProjects = useCallback(async () => {
         try {
+            if (!currentUser) {
+                setProjects([]);
+                return;
+            }
+
             let all;
             if (currentUser.role === UserRole.ADMIN) {
                 all = await storage.getAllProjects();
@@ -143,7 +148,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
             if (all && all.length > 0) {
                 setProjects(all as Project[]);
             } else {
-                setProjects(generateDemoProjects());
+                setProjects([]);
             }
         } catch (err) {
             console.error('Failed to load projects from storage:', err);

@@ -216,7 +216,7 @@ export default function TeamLeadProjectsPage() {
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         className="glass-card glass-card-hover p-5 cursor-pointer"
-                                        onClick={() => navigate(`/projects/${project.id}`)}
+                                        onClick={() => navigate(`/teamlead-dashboard/projects/${project.id}`)}
                                     >
                                         <div className="flex items-start gap-3 mb-3">
                                             <div className="w-10 h-10 rounded-xl bg-[var(--accent-primary)]/15 flex items-center justify-center shrink-0 mt-0.5">
