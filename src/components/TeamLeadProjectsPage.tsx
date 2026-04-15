@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
     Search,
     FolderOpen,
@@ -23,6 +24,7 @@ const ITEMS_PER_PAGE = 12;
 
 export default function TeamLeadProjectsPage() {
     const navigate = useNavigate();
+    const { authSession } = useAuth();
     const { markSeen } = useAISpreadsheet();
     const [projects, setProjects] = useState<UnifiedProject[]>([]);
     const [loading, setLoading] = useState(true);
@@ -34,13 +36,16 @@ export default function TeamLeadProjectsPage() {
     useEffect(() => {
         markSeen();
         loadProjects();
-    }, [markSeen]);
+    }, [markSeen, authSession]);
 
     const loadProjects = async () => {
         setLoading(true);
         try {
             const all = await storage.getAllProjects();
-            setProjects(all || []);
+            const filtered = all.filter(p => 
+                p.projectManager?.email.toLowerCase() === authSession?.email.toLowerCase()
+            );
+            setProjects(filtered || []);
         } catch (err) {
             console.error('Failed to load projects:', err);
         } finally {
