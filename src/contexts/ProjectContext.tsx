@@ -26,7 +26,7 @@ export interface Project {
     overview?: string;
     createdAt: string;
     updatedAt: string;
-    status: 'active' | 'completed' | 'archived' | 'draft';
+    status: 'active' | 'completed' | 'archived' | 'draft' | 'deleted';
     spreadsheetData?: SpreadsheetData;
     googleSheetUrl?: string;
     outputs: OperatorOutput[];

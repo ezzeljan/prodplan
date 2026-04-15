@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { saveAs } from "file-saver";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Navigate } from "react-router-dom";
 import {
   Bot,
   Plus,
@@ -924,10 +924,7 @@ export default function ProductionPlanMaker() {
       {/* ── Main Chat ── */}
       <div className="flex-1 flex flex-col min-w-0 relative">
         {!isProjectStarted ? (
-          <ProjectSetupView
-            onComplete={handleStartProject}
-            onReset={handleNuclearReset}
-          />
+          <Navigate to="/projects" replace />
         ) : (
           <>
             {/* Background blobs */}

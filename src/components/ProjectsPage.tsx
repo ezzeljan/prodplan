@@ -14,11 +14,13 @@ import {
     Clock,
     Archive,
     RotateCcw,
+    FileSpreadsheet,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { storage } from '../utils/storageProvider';
 import type { UnifiedProject } from '../utils/projectStorage';
 import { useAISpreadsheet } from '../contexts/AISpreadsheetContext';
+import ProjectSetupView from './chat/ProjectSetupView';
 
 type FilterStatus = 'all' | 'active' | 'completed' | 'archived';
 type SortBy = 'newest' | 'oldest' | 'name';
@@ -36,6 +38,7 @@ export default function ProjectsPage() {
     const [page, setPage] = useState(1);
     const [menuOpen, setMenuOpen] = useState<string | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    const [showCreateModal, setShowCreateModal] = useState(false);
 
     useEffect(() => {
         markSeen();
@@ -47,6 +50,9 @@ export default function ProjectsPage() {
         try {
             const all = await storage.getAllProjects();
             setProjects(all);
+            if (all.length === 0) {
+                setShowCreateModal(true);
+            }
         } catch (err) {
             console.error('Failed to load projects:', err);
         } finally {
@@ -126,10 +132,10 @@ export default function ProjectsPage() {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'active': return { text: 'text-[#046241]', bg: 'bg-[#046241]/10', border: 'border-[#046241]/20' };
-            case 'completed': return { text: 'text-blue-400', bg: 'bg-blue-400/10', border: 'border-blue-400/20' };
-            case 'archived': return { text: 'text-gray-400', bg: 'bg-gray-400/10', border: 'border-gray-400/20' };
-            default: return { text: 'text-gray-400', bg: 'bg-gray-400/10', border: 'border-gray-400/20' };
+            case 'active': return { text: 'text-[var(--metric-green)]', bg: 'bg-[var(--metric-green)]/10', border: 'border-[var(--metric-green)]/20' };
+            case 'completed': return { text: 'text-[var(--metric-blue)]', bg: 'bg-[var(--metric-blue)]/10', border: 'border-[var(--metric-blue)]/20' };
+            case 'archived': return { text: 'text-[var(--text-muted)]', bg: 'bg-[var(--text-muted)]/10', border: 'border-[var(--text-muted)]/20' };
+            default: return { text: 'text-[var(--text-muted)]', bg: 'bg-[var(--text-muted)]/10', border: 'border-[var(--text-muted)]/20' };
         }
     };
 
@@ -169,7 +175,7 @@ export default function ProjectsPage() {
                         </p>
                     </div>
                     <button
-                        onClick={() => navigate('/')}
+                        onClick={() => setShowCreateModal(true)}
                         className="glass-btn flex items-center gap-2 text-sm"
                     >
                         <Plus className="w-4 h-4" />
@@ -258,7 +264,7 @@ export default function ProjectsPage() {
                         </p>
                         {!search && (
                             <button
-                                onClick={() => navigate('/')}
+                                onClick={() => setShowCreateModal(true)}
                                 className="glass-btn flex items-center gap-2 text-sm"
                             >
                                 <Plus className="w-4 h-4" />
@@ -452,31 +458,66 @@ export default function ProjectsPage() {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-sm bg-[#133020] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                            className="relative w-full max-w-sm bg-[var(--surface-primary)] border border-[var(--border-color)] rounded-2xl shadow-2xl overflow-hidden"
                         >
                             <div className="p-6">
                                 <div className="flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-red-500/10 text-red-500">
                                     <Trash2 className="w-6 h-6" />
                                 </div>
-                                <h3 className="text-xl font-semibold text-white mb-2">Delete Project</h3>
-                                <p className="text-white/60 text-sm">
+                                <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Delete Project</h3>
+                                <p className="text-[var(--text-secondary)] text-sm">
                                     Are you sure you want to delete this project? This action cannot be undone.
                                 </p>
                             </div>
-                            <div className="flex border-t border-white/10">
+                            <div className="flex border-t border-[var(--border-color)]">
                                 <button
                                     onClick={() => { setDeleteConfirm(null); setMenuOpen(null); }}
-                                    className="flex-1 px-4 py-4 text-sm font-medium text-white/70 hover:bg-white/5 transition-colors"
+                                    className="flex-1 px-4 py-4 text-sm font-medium text-[var(--text-muted)] hover:bg-[var(--surface-secondary)] transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={() => handleDelete(deleteConfirm)}
-                                    className="flex-1 px-4 py-4 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors border-l border-white/10"
+                                    className="flex-1 px-4 py-4 text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors border-l border-[var(--border-color)]"
                                 >
                                     Delete
                                 </button>
                             </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Create Project Modal */}
+            <AnimatePresence>
+                {showCreateModal && (
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowCreateModal(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-2xl bg-transparent z-[1100]"
+                        >
+                            <ProjectSetupView 
+                                onComplete={(name, id) => {
+                                    setShowCreateModal(false);
+                                    navigate(`/?projectId=${id}`);
+                                }}
+                                onReset={() => {
+                                    if (window.confirm("ARE YOU SURE? This will permanently delete ALL data, sessions, and files. Proceed?")) {
+                                        localStorage.clear();
+                                        sessionStorage.clear();
+                                        window.location.reload();
+                                    }
+                                }}
+                            />
                         </motion.div>
                     </div>
                 )}

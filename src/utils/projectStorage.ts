@@ -16,7 +16,7 @@ export interface UnifiedProject {
     updatedAt: string;
     spreadsheetData: SpreadsheetData;
     googleSheetUrl?: string;
-    status: 'active' | 'completed' | 'archived' | 'draft';
+    status: 'active' | 'completed' | 'archived' | 'draft' | 'deleted';
     outputs: any[]; // Daily production records for dashboard metrics
 }
 
@@ -65,19 +65,16 @@ export const getAllProjects = async (): Promise<UnifiedProject[]> => {
     return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readonly');
         const request = tx.objectStore(STORE_NAME).getAll();
-        request.onsuccess = () => resolve(request.result || []);
+        request.onsuccess = () => {
+            const all = request.result || [];
+            resolve(all.filter((p: any) => p.status !== 'deleted'));
+        };
         request.onerror = () => reject(request.error);
     });
 };
 
 export const deleteProjectFromDB = async (id: string): Promise<void> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        tx.objectStore(STORE_NAME).delete(id);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
+    return updateProject(id, { status: 'deleted' });
 };
 
 export const updateProject = async (id: string, updates: Partial<UnifiedProject>): Promise<void> => {

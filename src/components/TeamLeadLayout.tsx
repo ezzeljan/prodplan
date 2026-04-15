@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AISpreadsheetProvider } from '../contexts/AISpreadsheetContext';
 import TeamLeadDashboard from './TeamLeadDashboard';
 import TeamLeadProjectsPage from './TeamLeadProjectsPage';
+import ProjectDetailsPage from './ProjectDetailsPage';
 import SpreadsheetPage from './SpreadsheetPage';
 import ProductionPlanMaker from './ProductionPlanMaker';
 import logo from '../assets/lifewood-logo.png';
@@ -267,6 +268,11 @@ export default function TeamLeadLayout() {
             </AISpreadsheetProvider>
           } />
           <Route path="projects/:id" element={
+            <AISpreadsheetProvider>
+              <ProjectDetailsPage />
+            </AISpreadsheetProvider>
+          } />
+          <Route path="projects/:id/spreadsheet" element={
             <AISpreadsheetProvider>
               <SpreadsheetPage />
             </AISpreadsheetProvider>

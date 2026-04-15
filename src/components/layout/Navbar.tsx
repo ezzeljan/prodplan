@@ -7,7 +7,6 @@ import logo from "../../assets/lifewood-logo.png";
 import icon from "../../assets/icon.png";
 
 const navWithIcons = [
-  { label: "Home", href: "/", icon: <Home className="w-5 h-5" /> },
   { label: "Projects", href: "/projects", icon: <FolderOpen className="w-5 h-5" /> },
   { label: "Dashboard", href: "/dashboard", icon: <BarChart3 className="w-5 h-5" /> },
   { label: "Production Plan", href: "/production-plan", icon: <FileSpreadsheet className="w-5 h-5" /> },
@@ -80,7 +79,7 @@ const Navbar = () => {
             </button>
           )}
           <Link
-            to="/"
+            to="/dashboard"
             className={`overflow-hidden transition-all duration-300 flex items-center h-12 cursor-pointer ${isExpanded ? "w-auto opacity-100" : "w-0 opacity-0 hidden"}`}
             onClick={(e) => {
               if (location.pathname === "/") {
@@ -211,7 +210,7 @@ const Navbar = () => {
 
       {/* Mobile Topbar & Hamburger */}
       <nav className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#133020]/90 backdrop-blur-xl border-b border-white/10 z-50 flex items-center justify-between px-4">
-        <Link to="/" className="flex items-center shrink-0">
+        <Link to="/dashboard" className="flex items-center shrink-0">
           <img
             src={logo}
             alt="Lifewood"

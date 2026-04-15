@@ -22,6 +22,7 @@ import {
     EyeOff,
     Briefcase,
     ChevronRight,
+    ChevronLeft,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import UserSwitcher from './UserSwitcher';
@@ -86,7 +87,7 @@ function OperatorRow({
                 : 'bg-[var(--metric-red)]';
 
     const statusText = rate >= 1 ? 'Target Met' : rate >= 0.8 ? 'On Track' : rate >= 0.5 ? 'Behind' : 'At Risk';
-    const statusColor = rate >= 1 ? 'text-[var(--metric-green)]' : rate >= 0.8 ? 'text-[var(--accent-secondary)]' : rate >= 0.5 ? 'text-[var(--metric-amber)]' : 'text-[var(--metric-red)]';
+    const statusColor = 'text-[var(--text-primary)]';
 
     return (
         <div className="flex items-center gap-4 py-3 border-b border-white/5 last:border-0">
@@ -354,7 +355,6 @@ export default function AdminDashboard() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-[var(--text-primary)]">Admin Dashboard</h1>
-                        <p className="text-sm text-[var(--text-secondary)] mt-1">Performance overview and operator metrics</p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -364,9 +364,9 @@ export default function AdminDashboard() {
                                 onClick={() => setFilterOpen(!filterOpen)}
                                 className="glass-card flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/10 transition-colors"
                             >
-                                <Folder className="w-4 h-4 text-[var(--accent-secondary)]" />
+                                <Folder className="w-4 h-4 text-[var(--text-primary)]" />
                                 <span className="text-sm font-medium text-[var(--text-primary)]">{selectedLabel}</span>
-                                <ChevronDown className={`w-4 h-4 text-[var(--text-muted)] transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+                                <ChevronDown className={`w-4 h-4 text-[var(--text-primary)] transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
                             </button>
 
                             <AnimatePresence>
@@ -379,7 +379,7 @@ export default function AdminDashboard() {
                                     >
                                         <button
                                             onClick={() => { setActiveProjectId(null); setFilterOpen(false); }}
-                                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${!activeProjectId ? 'bg-[var(--accent-primary)]/20 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-white/5'}`}
+                                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${!activeProjectId ? 'bg-white/10 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-white/5'}`}
                                         >
                                             <BarChart3 className="w-4 h-4" />
                                             All Projects
@@ -388,7 +388,7 @@ export default function AdminDashboard() {
                                             <button
                                                 key={p.id}
                                                 onClick={() => scrollToProject(p.id)}
-                                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${activeProjectId === p.id ? 'bg-[var(--accent-primary)]/20 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-white/5'}`}
+                                                className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-3 ${activeProjectId === p.id ? 'bg-white/10 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-white/5'}`}
                                             >
                                                 <Folder className="w-4 h-4" />
                                                 {p.name}
@@ -398,158 +398,70 @@ export default function AdminDashboard() {
                                 )}
                             </AnimatePresence>
                         </div>
-                        <UserSwitcher />
                     </div>
                 </div>
 
-                {/* ── Personnel & User Management ── */}
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4 }}
-                    className="mb-8 glass-card p-6 border-l-4 border-[var(--accent-primary)] shadow-2xl relative overflow-hidden"
-                >
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent-primary)]/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
-                    <div className="flex items-center justify-between mb-6 relative z-10">
-                        <div className="flex flex-col gap-1">
-                            <h2 className="text-xl font-bold text-[var(--accent-primary)] flex items-center gap-2.5">
-                                <Users className="w-6 h-6" />
-                                Team Lead Management
-                            </h2>
-                            <p className="text-sm text-[var(--text-muted)]">Register and manage accounts for Team Leads.</p>
-                        </div>
-                        <button
-                            onClick={() => setShowAddModal(true)}
-                            className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-white
-                                bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)]
-                                hover:shadow-xl hover:shadow-[var(--accent-glow)] transition-all cursor-pointer hover:-translate-y-0.5"
-                        >
-                            <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
-                            Register New Personnel
-                        </button>
-                    </div>
 
-                    <div className="grid grid-cols-1 gap-6 relative z-10">
-                        <div className="glass-card p-5 bg-white/5 border border-white/5 hover:border-[var(--metric-purple)]/30 transition-colors">
-                            <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-4">
-                                <h3 className="text-xs font-bold text-[var(--metric-purple)] uppercase tracking-wider flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--metric-purple)]" />
-                                    Team Leads
-                                </h3>
-                                <button
-                                    onClick={() => { setShowAddModal(true); setAddError(''); setEditUserId(null); setAddForm({ name: '', email: 'lifewood@ph.com', role: Role.TEAM_LEAD, manualPin: '', projectId: '', projectTitle: '' }); }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-white
-                                        bg-[var(--metric-purple)] hover:bg-[var(--accent-secondary)] transition-all cursor-pointer shadow-lg shadow-[var(--metric-purple)]/20"
-                                >
-                                    <Plus className="w-3 h-3" />
-                                    Register Team Lead
-                                </button>
-                            </div>
-                            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                {users.filter(u => u.role === Role.TEAM_LEAD).map(u => {
-                                    const assignedProject = projects.find(p => String(p.projectManager?.id) === String(u.id));
-                                    return (
-                                        <div
-                                            key={u.id}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedPersonnelId(u.id);
-                                                if (assignedProject) {
-                                                    scrollToProject(String(assignedProject.id));
-                                                } else {
-                                                    setTimeout(() => {
-                                                        projectDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                                    }, 100);
-                                                }
-                                            }}
-                                            className={`flex items-center gap-3 p-3 rounded-xl border transition-all group cursor-pointer ${activeProjectId === String(assignedProject?.id) || selectedPersonnelId === u.id ? 'bg-[var(--metric-purple)]/10 border-[var(--metric-purple)]/30 ring-2 ring-[var(--metric-purple)]/20' : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'}`}
-                                        >
-                                            <div className="w-10 h-10 rounded-xl bg-[var(--metric-purple)]/20 flex items-center justify-center shrink-0 border border-[var(--metric-purple)]/20 shadow-inner">
-                                                <span className="text-sm font-bold text-[var(--metric-purple)]">{u.name.charAt(0)}</span>
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <p className="text-sm font-bold text-[var(--text-primary)] truncate">{u.name}</p>
-                                                    {assignedProject && (
-                                                        <span className="text-[10px] bg-[var(--metric-purple)]/10 text-[var(--metric-purple)] px-1.5 py-0.5 rounded-md font-bold truncate max-w-[100px]" title={`Assigned to ${assignedProject.name}`}>
-                                                            {assignedProject.name}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-[11px] text-[var(--text-muted)] truncate opacity-70">{u.email}</p>
-                                                    {u.pin && (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <div className="w-1 h-1 rounded-full bg-white/20" />
-                                                            {revealedPins.has(u.id) ? (
-                                                                <span className="text-[10px] font-mono font-bold text-white bg-[var(--accent-primary)]/20 px-1.5 py-0.5 rounded border border-white/10 shadow-sm animate-in fade-in zoom-in duration-200">
-                                                                    {u.pin}
-                                                                </span>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); togglePin(u.id); }}
-                                                                    className="text-[10px] font-bold text-white/70 hover:text-white transition-colors flex items-center gap-1"
-                                                                >
-                                                                    <Eye className="w-3 h-3 text-white/70" />
-                                                                    Show PIN
-                                                                </button>
-                                                            )}
-                                                            {revealedPins.has(u.id) && (
-                                                                <button onClick={(e) => { e.stopPropagation(); togglePin(u.id); }} className="text-white/50 hover:text-white transition-colors">
-                                                                    <EyeOff className="w-3 h-3" />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-2 shrink-0 ml-auto">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedPersonnelId(u.id);
-                                                        if (assignedProject) {
-                                                            scrollToProject(String(assignedProject.id));
-                                                        } else {
-                                                            setTimeout(() => {
-                                                                projectDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                                            }, 100);
-                                                        }
-                                                    }}
-                                                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-[var(--text-primary)]/5 hover:bg-[var(--metric-purple)]/20 text-[var(--text-secondary)] hover:text-[var(--metric-purple)] transition-all border border-[var(--text-primary)]/10 hover:border-[var(--metric-purple)]/30"
-                                                >
-                                                    View Team
-                                                </button>
-                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleEditUser(u); }}
-                                                        className="p-1 text-[var(--text-muted)] hover:text-[var(--accent-primary)] transition-all"
-                                                        title="Edit account"
-                                                    >
-                                                        <KeyRound className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(u.id); }}
-                                                        className="p-1 text-[var(--text-muted)] hover:text-[var(--metric-red)] transition-all"
-                                                        title="Remove account"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                {users.filter(u => u.role === Role.TEAM_LEAD).length === 0 && (
-                                    <div className="flex flex-col items-center justify-center py-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
-                                        <Users className="w-8 h-8 text-[var(--text-muted)] opacity-20 mb-2" />
-                                        <p className="text-xs text-[var(--text-muted)] italic">No Team Leads registered yet.</p>
-                                    </div>
-                                )}
-                            </div>
+                {/* ── Dashboard Top Actions ── */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-8">
+                    {/* Create Project CTA */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.05, duration: 0.4 }}
+                        className="md:col-span-8 glass-card p-8 flex flex-col items-center justify-center text-center bg-white/5 border border-black/10 relative overflow-hidden group min-h-[180px]"
+                    >
+                        <div className="relative z-10">
+                            <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Want to create a new project?</h2>
+                            <button
+                                onClick={() => window.location.href = '/'}
+                                className="bg-[#FFB347] text-black px-8 py-3 rounded-2xl font-bold text-sm hover:shadow-2xl hover:shadow-[#FFB347]/40 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                            >
+                                <Plus className="w-5 h-5" />
+                                Create Project
+                            </button>
                         </div>
-                    </div>
-                </motion.div>
+                        <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-[var(--accent-primary)]/5 rounded-full blur-3xl pointer-events-none group-hover:bg-[var(--accent-primary)]/10 transition-colors" />
+                    </motion.div>
+
+                    {/* Mini Calendar View */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1, duration: 0.4 }}
+                        className="md:col-span-4 glass-card p-5 bg-white/5 border border-black/10 flex flex-col justify-between"
+                    >
+                        <div className="flex items-center justify-between mb-6">
+                            <button className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-primary)] transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+                            <h3 className="text-sm font-bold text-[var(--text-primary)]">April 2026</h3>
+                            <button className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-primary)] transition-colors"><ChevronRight className="w-4 h-4" /></button>
+                        </div>
+
+                        <div className="flex justify-between items-center px-1">
+                            {[
+                                { day: 'Mon', date: 13 },
+                                { day: 'Tue', date: 14, current: true },
+                                { day: 'Wed', date: 15 },
+                                { day: 'Thu', date: 16 },
+                                { day: 'Fri', date: 17 },
+                                { day: 'Sat', date: 18 },
+                                { day: 'Sun', date: 19 }
+                            ].map((item, idx) => (
+                                <div key={idx} className="flex flex-col items-center gap-2">
+                                    <span className={`text-[10px] font-bold ${item.current ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] opacity-60'}`}>
+                                        {item.day}
+                                    </span>
+                                    <div
+                                        className={`w-8 h-12 rounded-xl flex items-center justify-center transition-all ${item.current ? 'text-black shadow-lg' : 'text-[var(--text-primary)] hover:bg-white/5 h-8'}`}
+                                        style={item.current ? { backgroundColor: '#FFB347', boxShadow: '0 10px 15px -3px rgba(255, 179, 71, 0.3)' } : {}}
+                                    >
+                                        <span className="text-sm font-bold">{item.date}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.div>
+                </div>
 
                 {/* ── Metric Cards ── */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 stagger-children">
@@ -558,16 +470,17 @@ export default function AdminDashboard() {
                         value={metrics.totalActual.toLocaleString()}
                         subtitle={`of ${metrics.totalTarget.toLocaleString()} target`}
                         icon={BarChart3}
-                        colorClass="metric-green"
-                        bgClass="metric-green-bg"
+                        colorClass="text-[var(--text-primary)]"
+                        bgClass="bg-white/5"
                         delay={0.05}
                     />
                     <MetricCard
-                        label="Completion Rate"
-                        value={`${(metrics.completionRate * 100).toFixed(1)}%`}
-                        icon={TrendingUp}
-                        colorClass={metrics.completionRate >= 0.8 ? 'metric-green' : metrics.completionRate >= 0.5 ? 'metric-amber' : 'metric-red'}
-                        bgClass={metrics.completionRate >= 0.8 ? 'metric-green-bg' : metrics.completionRate >= 0.5 ? 'metric-amber-bg' : 'metric-red-bg'}
+                        label="Active Team Leads"
+                        value={users.filter(u => u.role === Role.TEAM_LEAD).length}
+                        subtitle="managers"
+                        icon={Award}
+                        colorClass="text-[var(--text-primary)]"
+                        bgClass="bg-white/5"
                         delay={0.1}
                     />
                     <MetricCard
@@ -575,26 +488,25 @@ export default function AdminDashboard() {
                         value={metrics.operatorSummary.length}
                         subtitle="contributors"
                         icon={Users}
-                        colorClass="metric-blue"
-                        bgClass="metric-blue-bg"
+                        colorClass="text-[var(--text-primary)]"
+                        bgClass="bg-white/5"
                         delay={0.15}
                     />
                     <MetricCard
                         label="Projects"
                         value={activeProjectId ? 1 : projects.length}
                         icon={Target}
-                        colorClass="metric-purple"
-                        bgClass="metric-purple-bg"
+                        colorClass="text-[var(--text-primary)]"
+                        bgClass="bg-white/5"
                         delay={0.2}
                     />
                 </div>
 
-                {/* ── Project Portfolio ── */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between mb-5">
-                        <h2 className="text-xl font-bold text-[var(--accent-secondary)] flex items-center gap-2.5">
-                            <Target className="w-6 h-6" />
-                            Operations Oversight
+                <div className="mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2.5">
+                            <Target className="w-6 h-6 text-[var(--text-primary)]" />
+                            Projects
                         </h2>
                         <div className="text-[10px] uppercase tracking-widest font-bold text-[var(--text-muted)] bg-white/5 px-3 py-1 rounded-full border border-white/5">
                             {projects.length} Active {projects.length === 1 ? 'Project' : 'Projects'}
@@ -608,13 +520,13 @@ export default function AdminDashboard() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.1 + idx * 0.05 }}
                                 onClick={() => scrollToProject(String(p.id))}
-                                className={`glass-card p-5 cursor-pointer transition-all border group hover:-translate-y-1 ${activeProjectId === String(p.id) ? 'border-[var(--accent-secondary)] ring-2 ring-[var(--accent-secondary)]/20 shadow-xl' : 'hover:border-white/20'}`}
+                                className={`glass-card p-5 cursor-pointer transition-all border border-black/10 group hover:-translate-y-1 ${activeProjectId === String(p.id) ? 'border-black/30 ring-2 ring-black/5 shadow-xl' : 'hover:border-black/20'}`}
                             >
                                 <div className="flex items-center justify-between mb-4">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 ${activeProjectId === String(p.id) ? 'bg-[var(--accent-secondary)]/20' : 'bg-white/5'}`}>
-                                        <Briefcase className={`w-5 h-5 ${activeProjectId === String(p.id) ? 'text-[var(--accent-secondary)]' : 'text-[var(--text-muted)]'}`} />
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 ${activeProjectId === String(p.id) ? 'bg-white/10' : 'bg-white/5'}`}>
+                                        <Briefcase className={`w-5 h-5 text-[var(--text-primary)] ${activeProjectId === String(p.id) ? '' : 'opacity-60'}`} />
                                     </div>
-                                    <ChevronRight className={`w-4 h-4 text-[var(--text-muted)] transition-transform group-hover:translate-x-1 ${activeProjectId === String(p.id) ? 'rotate-90 text-[var(--accent-secondary)]' : ''}`} />
+                                    <ChevronRight className={`w-4 h-4 text-[var(--text-primary)] transition-transform group-hover:translate-x-1 ${activeProjectId === String(p.id) ? 'rotate-90' : ''}`} />
                                 </div>
                                 <h3 className="text-base font-bold text-[var(--text-primary)] mb-1 truncate">{p.name}</h3>
                                 <p className="text-xs text-[var(--text-muted)] mb-4 line-clamp-1">{p.goal} {p.unit} target</p>
@@ -622,7 +534,7 @@ export default function AdminDashboard() {
                                 <div className="flex items-center justify-between pt-3 border-t border-white/5">
                                     <div className="flex -space-x-2">
                                         {(p.operators?.slice(0, 3) || []).map(op => (
-                                            <div key={op.id} className="w-6 h-6 rounded-full bg-[var(--metric-green)] border-2 border-[#0d1f17] flex items-center justify-center">
+                                            <div key={op.id} className="w-6 h-6 rounded-full bg-white/20 border-2 border-[#0d1f17] flex items-center justify-center">
                                                 <span className="text-[8px] font-bold text-white">{op.name.charAt(0)}</span>
                                             </div>
                                         ))}
@@ -641,6 +553,7 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
+
                 {/* ── Top Performers & Operator Table ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -652,27 +565,27 @@ export default function AdminDashboard() {
                         className="glass-card p-6"
                     >
                         <h2 className="text-base font-semibold text-[var(--text-primary)] mb-5 flex items-center gap-2">
-                            <Award className="w-5 h-5 text-[var(--metric-amber)]" />
+                            <Award className="w-5 h-5 text-[var(--text-primary)]" />
                             {activeProjectId ? 'Project Leaders' : 'Top Performers'}
                         </h2>
 
                         {metrics.topPerformerWeekly && (
-                            <div className="glass-card p-4 mb-3 metric-amber-bg">
+                            <div className="glass-card p-4 mb-3 bg-white/5">
                                 <p className="text-xs text-[var(--text-muted)] mb-1 flex items-center gap-1.5">
                                     <Calendar className="w-3.5 h-3.5" /> Weekly Leader
                                 </p>
                                 <p className="text-lg font-bold text-[var(--text-primary)]">{metrics.topPerformerWeekly.name}</p>
-                                <p className="text-sm metric-amber font-semibold">{metrics.topPerformerWeekly.output} units</p>
+                                <p className="text-sm text-[var(--text-primary)] font-semibold">{metrics.topPerformerWeekly.output} units</p>
                             </div>
                         )}
 
                         {metrics.topPerformerMonthly && (
-                            <div className="glass-card p-4 metric-green-bg">
+                            <div className="glass-card p-4 bg-white/5">
                                 <p className="text-xs text-[var(--text-muted)] mb-1 flex items-center gap-1.5">
                                     <Activity className="w-3.5 h-3.5" /> Monthly Leader
                                 </p>
                                 <p className="text-lg font-bold text-[var(--text-primary)]">{metrics.topPerformerMonthly.name}</p>
-                                <p className="text-sm metric-green font-semibold">{metrics.topPerformerMonthly.output} units</p>
+                                <p className="text-sm text-[var(--text-primary)] font-semibold">{metrics.topPerformerMonthly.output} units</p>
                             </div>
                         )}
 
@@ -689,7 +602,7 @@ export default function AdminDashboard() {
                         className="lg:col-span-2 glass-card p-6"
                     >
                         <h2 className="text-base font-semibold text-[var(--text-primary)] mb-5 flex items-center gap-2">
-                            <Users className="w-5 h-5 text-[var(--metric-blue)]" />
+                            <Users className="w-5 h-5 text-[var(--text-primary)]" />
                             {activeProjectId ? 'Personnel Breakdown' : 'Operator Leaderboard'}
                         </h2>
 
@@ -712,103 +625,257 @@ export default function AdminDashboard() {
                     </motion.div>
                 </div>
 
-                {/* ── Project Assignments (when a project or personnel is selected) ── */}
-                {
-                    (activeProjectId || selectedPersonnelId) && (
-                        <motion.div
-                            ref={projectDetailRef}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.35, duration: 0.4 }}
-                            className="mt-6 glass-card p-6 border-2 border-[var(--metric-purple)]/20"
-                        >
-                            <div className="flex items-center justify-between mb-5">
-                                <h2 className="text-base font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                                    <Target className="w-5 h-5 text-[var(--metric-purple)]" />
-                                    {activeProjectId
-                                        ? `Project Detail: ${projects.find(p => p.id === activeProjectId)?.name}`
-                                        : `Team Lead Selection: ${users.find(u => u.id === selectedPersonnelId)?.name}`
-                                    }
-                                </h2>
-                            </div>
+                {/* ── Personnel & User Management ── */}
+                <div className="mt-12 mb-5 flex items-center justify-between">
+                    <div className="flex flex-col gap-1">
+                        <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2.5">
+                            <Users className="w-6 h-6 text-[var(--text-primary)]" />
+                            Team Lead Management
+                        </h2>
+                        <p className="text-sm text-[var(--text-muted)]">Register and manage accounts for Team Leads.</p>
+                    </div>
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-black
+                            bg-[#FFB347] hover:shadow-xl hover:shadow-[#FFB347]/30 transition-all cursor-pointer hover:-translate-y-0.5"
+                    >
+                        <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
+                        Register New Personnel
+                    </button>
+                </div>
 
-                            {!activeProjectId && selectedPersonnelId && (
-                                <div className="flex flex-col items-center justify-center py-10 bg-white/5 rounded-2xl border border-dashed border-white/10">
-                                    <Activity className="w-12 h-12 text-[var(--text-muted)] mb-4 opacity-20" />
-                                    <p className="text-sm text-[var(--text-primary)] font-bold mb-2">Personnel Selected: {users.find(u => u.id === selectedPersonnelId)?.name}</p>
-                                    <p className="text-xs text-[var(--text-muted)] mb-6">This user is not currently assigned to an active project.</p>
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4 }}
+                    className="mb-8 glass-card p-6 border-l-4 border-black/20 shadow-2xl relative overflow-hidden"
+                >
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
 
-                                    <div className="w-full max-w-sm px-6">
-                                        <h4 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-3 text-center">Assign Team Lead to Project</h4>
-                                        <select
-                                            className="glass-input w-full px-4 py-3 text-sm bg-transparent mb-4"
-                                            onChange={(e) => {
-                                                handleAssignTeamLead(e.target.value, selectedPersonnelId);
-                                            }}
-                                            value=""
-                                        >
-                                            <option value="" disabled className="bg-[#0d1f17]">Select target project...</option>
-                                            {projects.map(p => (
-                                                <option key={p.id} value={p.id} className="bg-[#0d1f17]">{p.name}</option>
-                                            ))}
-                                        </select>
-                                        <p className="text-[10px] text-center text-[var(--text-muted)] italic">Note: Only Team Leads can be assigned to projects by an Admin.</p>
+                    <div className="relative z-10">
+
+                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                            {users.filter(u => u.role === Role.TEAM_LEAD).map(u => {
+                                const assignedProject = projects.find(p => String(p.projectManager?.id) === String(u.id));
+                                return (
+                                    <div
+                                        key={u.id}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedPersonnelId(u.id);
+                                            if (assignedProject) {
+                                                scrollToProject(String(assignedProject.id));
+                                            } else {
+                                                setTimeout(() => {
+                                                    projectDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                }, 100);
+                                            }
+                                        }}
+                                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all group cursor-pointer ${activeProjectId === String(assignedProject?.id) || selectedPersonnelId === u.id ? 'bg-white/10 border-black/30 ring-2 ring-black/5' : 'bg-white/5 border-black/10 hover:bg-white/15 hover:border-black/20'}`}
+                                    >
+                                        <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10 shadow-inner">
+                                            <span className="text-sm font-bold text-[var(--text-primary)]">{u.name.charAt(0)}</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="text-sm font-bold text-[var(--text-primary)] truncate">{u.name}</p>
+                                                {assignedProject && (
+                                                    <span className="text-[10px] bg-white/5 text-[var(--text-muted)] px-1.5 py-0.5 rounded-md font-bold truncate max-w-[100px]" title={`Assigned to ${assignedProject.name}`}>
+                                                        {assignedProject.name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-[11px] text-[var(--text-muted)] truncate opacity-70">{u.email}</p>
+                                                {u.pin && (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="w-1 h-1 rounded-full bg-white/20" />
+                                                        {revealedPins.has(u.id) ? (
+                                                            <span className="text-[10px] font-mono font-bold text-white bg-white/20 px-1.5 py-0.5 rounded border border-white/10 shadow-sm animate-in fade-in zoom-in duration-200">
+                                                                {u.pin}
+                                                            </span>
+                                                        ) : (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); togglePin(u.id); }}
+                                                                className="text-[10px] font-bold text-white/70 hover:text-white transition-colors flex items-center gap-1"
+                                                            >
+                                                                <Eye className="w-3 h-3 text-[var(--text-primary)]" />
+                                                                Show PIN
+                                                            </button>
+                                                        )}
+                                                        {revealedPins.has(u.id) && (
+                                                            <button onClick={(e) => { e.stopPropagation(); togglePin(u.id); }} className="text-white/50 hover:text-white transition-colors">
+                                                                <EyeOff className="w-3 h-3" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2 shrink-0 ml-auto">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedPersonnelId(u.id);
+                                                    if (assignedProject) {
+                                                        scrollToProject(String(assignedProject.id));
+                                                    } else {
+                                                        setTimeout(() => {
+                                                            projectDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                        }, 100);
+                                                    }
+                                                }}
+                                                className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-white/5 hover:bg-white/10 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all border border-white/10 hover:border-white/20"
+                                            >
+                                                View Team
+                                            </button>
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleEditUser(u); }}
+                                                    className="p-1 text-[var(--text-primary)] hover:bg-white/10 transition-all opacity-80"
+                                                    title="Edit account"
+                                                >
+                                                    <KeyRound className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(u.id); }}
+                                                    className="p-1 text-[var(--text-primary)] hover:text-red-500 transition-all opacity-80"
+                                                    title="Remove account"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
+                                );
+                            })}
+                            {users.filter(u => u.role === Role.TEAM_LEAD).length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+                                    <Users className="w-8 h-8 text-[var(--text-primary)] opacity-40 mb-2" />
+                                    <p className="text-xs text-[var(--text-muted)] italic">No Team Leads registered yet.</p>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </motion.div>
 
-                            {activeProjectId && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    {/* Team Lead Assignment */}
-                                    <div>
-                                        <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Team Lead</h3>
-                                        <div className="flex flex-col gap-3">
-                                            <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-[var(--metric-purple)]/10 flex items-center justify-center">
-                                                        <Activity className="w-4 h-4 text-[var(--metric-purple)]" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-[var(--text-primary)]">
-                                                            {projects.find(p => p.id === activeProjectId)?.projectManager?.name || 'Unassigned'}
-                                                        </p>
-                                                        <p className="text-[10px] text-[var(--text-muted)]">Current Manager</p>
-                                                    </div>
-                                                </div>
-                                            </div>
+                {/* ── Project Assignments Modal ── */}
+                <AnimatePresence>
+                    {(activeProjectId || selectedPersonnelId) && (
+                        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                                onClick={() => { setActiveProjectId(null); setSelectedPersonnelId(null); }}
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                                className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto glass-card p-6 border-2 border-white/10 shadow-2xl custom-scrollbar"
+                                style={{ background: 'rgba(255, 255, 255, 0.06)' }}
+                            >
+                                <button
+                                    onClick={() => { setActiveProjectId(null); setSelectedPersonnelId(null); }}
+                                    className="absolute top-4 right-4 p-2 rounded-xl hover:bg-white/10 transition-colors z-[160]"
+                                >
+                                    <X className="w-5 h-5 text-[var(--text-primary)]" />
+                                </button>
+
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2.5">
+                                        <Target className="w-6 h-6 text-[var(--text-primary)]" />
+                                        {activeProjectId
+                                            ? `Project Detail: ${projects.find(p => p.id === activeProjectId)?.name}`
+                                            : `Team Lead Selection: ${users.find(u => u.id === selectedPersonnelId)?.name}`
+                                        }
+                                    </h2>
+                                </div>
+
+                                {!activeProjectId && selectedPersonnelId && (
+                                    <div className="flex flex-col items-center justify-center py-12 bg-white/5 rounded-2xl border border-dashed border-white/10">
+                                        <Activity className="w-12 h-12 text-[var(--text-primary)] mb-4 opacity-40" />
+                                        <p className="text-sm text-[var(--text-primary)] font-bold mb-2">Personnel Selected: {users.find(u => u.id === selectedPersonnelId)?.name}</p>
+                                        <p className="text-xs text-[var(--text-muted)] mb-8">This user is not currently assigned to an active project.</p>
+
+                                        <div className="w-full max-w-sm px-6">
+                                            <h4 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-3 text-center">Assign Team Lead to Project</h4>
                                             <select
-                                                className="glass-input w-full px-3 py-2 text-sm bg-transparent"
-                                                onChange={(e) => handleAssignTeamLead(activeProjectId, e.target.value)}
-                                                value={projects.find(p => p.id === activeProjectId)?.projectManager?.id || ''}
+                                                className="glass-input w-full px-4 py-3 text-sm bg-transparent mb-4"
+                                                onChange={(e) => {
+                                                    handleAssignTeamLead(e.target.value, selectedPersonnelId);
+                                                }}
+                                                value=""
                                             >
-                                                <option value="" disabled className="bg-[#0d1f17]">Change Team Lead...</option>
-                                                {users.filter(u => u.role === Role.TEAM_LEAD).map(pm => (
-                                                    <option key={pm.id} value={pm.id} className="bg-[#0d1f17]">{pm.name}</option>
+                                                <option value="" disabled className="bg-[#1a1a1a]">Select target project...</option>
+                                                {projects.map(p => (
+                                                    <option key={p.id} value={p.id} className="bg-[#1a1a1a]">{p.name}</option>
                                                 ))}
                                             </select>
+                                            <p className="text-[10px] text-center text-[var(--text-muted)] italic">Note: Only Team Leads can be assigned to projects by an Admin.</p>
                                         </div>
                                     </div>
+                                )}
 
-                                    {/* Assigned Operators (Read-only Oversight) */}
-                                    <div>
-                                        <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">Project Team (Oversight)</h3>
-                                        <div className="space-y-2">
-                                            {projects.find(p => p.id === activeProjectId)?.operators?.map(op => (
-                                                <div key={op.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                                                    <span className="text-sm text-[var(--text-primary)] font-medium">{op.name}</span>
-                                                    <span className="text-[10px] text-[var(--accent-primary)] font-bold italic opacity-60">managed by TL</span>
+                                {activeProjectId && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        {/* Team Lead Assignment */}
+                                        <div className="space-y-4">
+                                            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Team Lead Management</h3>
+                                            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                                                <div className="flex items-center gap-4 mb-4">
+                                                    <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center border border-white/10">
+                                                        <Activity className="w-6 h-6 text-[var(--text-primary)]" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-base font-bold text-[var(--text-primary)]">
+                                                            {projects.find(p => p.id === activeProjectId)?.projectManager?.name || 'Unassigned'}
+                                                        </p>
+                                                        <p className="text-xs text-[var(--text-muted)]">Current Project Manager</p>
+                                                    </div>
                                                 </div>
-                                            ))}
-                                            {(projects.find(p => p.id === activeProjectId)?.operators?.length || 0) === 0 && (
-                                                <p className="text-xs text-[var(--text-muted)] italic py-2">No operators assigned by Team Lead yet.</p>
-                                            )}
+                                                <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest block mb-2 px-1">Change Assignment</label>
+                                                <select
+                                                    className="glass-input w-full px-3 py-2.5 text-sm bg-transparent"
+                                                    onChange={(e) => handleAssignTeamLead(activeProjectId, e.target.value)}
+                                                    value={projects.find(p => p.id === activeProjectId)?.projectManager?.id || ''}
+                                                >
+                                                    <option value="" disabled className="bg-[#1a1a1a]">Select Team Lead...</option>
+                                                    {users.filter(u => u.role === Role.TEAM_LEAD).map(pm => (
+                                                        <option key={pm.id} value={pm.id} className="bg-[#1a1a1a]">{pm.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {/* Assigned Operators */}
+                                        <div className="space-y-4">
+                                            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Project Team Insight</h3>
+                                            <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                                                {projects.find(p => p.id === activeProjectId)?.operators?.map(op => (
+                                                    <div key={op.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                                                        <span className="text-sm text-[var(--text-primary)] font-medium">{op.name}</span>
+                                                        <div className="flex items-center gap-1.5 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
+                                                            <div className="w-1 h-1 rounded-full bg-[var(--text-muted)] opacity-50" />
+                                                            <span className="text-[10px] text-[var(--text-muted)] font-bold italic">Team Lead Managed</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {(projects.find(p => p.id === activeProjectId)?.operators?.length || 0) === 0 && (
+                                                    <div className="flex flex-col items-center justify-center py-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+                                                        <p className="text-xs text-[var(--text-muted)] italic">No operators assigned to this project yet.</p>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
-                        </motion.div>
-                    )
-                }
+                                )}
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
 
 
                 {/* ── Register Account Modal ── */}
@@ -827,7 +894,7 @@ export default function AdminDashboard() {
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: 16 }}
                                 className="relative glass-card p-6 w-full max-w-md mx-4"
-                                style={{ background: 'rgba(13, 31, 23, 0.97)' }}
+                                style={{ background: 'rgba(255, 255, 255, 0.06)' }}
                             >
                                 <div className="flex items-center justify-between mb-5">
                                     <h3 className="text-base font-semibold text-[var(--text-primary)]">
@@ -837,7 +904,7 @@ export default function AdminDashboard() {
                                         onClick={() => { setShowAddModal(false); setAddError(''); setEditUserId(null); }}
                                         className="p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                                     >
-                                        <X className="w-4 h-4 text-[var(--text-muted)]" />
+                                        <X className="w-4 h-4 text-[var(--text-primary)]" />
                                     </button>
                                 </div>
 
@@ -952,8 +1019,8 @@ export default function AdminDashboard() {
                                     {createdUserDetails ? (
                                         <button
                                             onClick={() => { setShowAddModal(false); setCreatedUserDetails(null); }}
-                                            className="w-full px-4 py-3 rounded-xl text-sm font-bold text-white
-                                                bg-[var(--accent-primary)] hover:bg-[var(--accent-secondary)] transition-all cursor-pointer shadow-lg shadow-[var(--accent-primary)]/20"
+                                            className="w-full px-4 py-3 rounded-xl text-sm font-bold text-black
+                                                bg-[#FFB347] hover:shadow-lg transition-all cursor-pointer shadow-lg shadow-[#FFB347]/20"
                                         >
                                             Acknowledge & Close
                                         </button>
@@ -968,9 +1035,8 @@ export default function AdminDashboard() {
                                             <button
                                                 onClick={handleAddUser}
                                                 disabled={addSubmitting}
-                                                className="px-4 py-2 rounded-xl text-sm font-semibold text-white
-                                                    bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)]
-                                                    hover:shadow-lg hover:shadow-[var(--accent-glow)] transition-all
+                                                className="px-4 py-2 rounded-xl text-sm font-semibold text-black
+                                                    bg-[#FFB347] hover:shadow-lg hover:shadow-[#FFB347]/30 transition-all
                                                     disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             >
                                                 {addSubmitting ? 'Saving...' : editUserId ? 'Update Account' : 'Add Account'}
@@ -999,7 +1065,7 @@ export default function AdminDashboard() {
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: 16 }}
                                 className="relative glass-card p-6 w-full max-w-sm mx-4"
-                                style={{ background: 'rgba(13, 31, 23, 0.97)' }}
+                                style={{ background: 'rgba(255, 255, 255, 0.06)' }}
                             >
                                 <div className="flex items-center gap-4 mb-4">
                                     <div className="w-12 h-12 rounded-full bg-[var(--metric-red)]/20 flex items-center justify-center shrink-0 border border-[var(--metric-red)]/30">
@@ -1021,8 +1087,8 @@ export default function AdminDashboard() {
                                     </button>
                                     <button
                                         onClick={() => handleDeleteUser(deleteConfirmId)}
-                                        className="px-4 py-2 rounded-xl text-sm font-bold text-white
-                                            bg-[var(--metric-red)] hover:bg-[#ff3333] transition-colors shadow-lg shadow-[var(--metric-red)]/20"
+                                        className="px-4 py-2 rounded-xl text-sm font-bold text-black
+                                            bg-[#FFB347] hover:bg-[#ffc163] transition-colors shadow-lg shadow-[#FFB347]/20"
                                     >
                                         Delete Forever
                                     </button>

@@ -30,7 +30,7 @@ const normalizeProject = (project: Partial<UnifiedProject> | undefined): Unified
 
 export interface StorageProvider {
     // Projects
-    saveProject(project: UnifiedProject, adminEmail?: string, adminPin?: string): Promise<void>;
+    saveProject(project: UnifiedProject, adminEmail?: string, adminPin?: string): Promise<any>;
     getProject(id: string): Promise<UnifiedProject | undefined>;
     getAllProjects(pmId?: string, operatorId?: string): Promise<UnifiedProject[]>;
     deleteProject(id: string, adminEmail?: string, adminPin?: string): Promise<void>;
@@ -76,6 +76,7 @@ class BackendProvider implements StorageProvider {
             })
         });
         if (!response.ok) throw new Error('Failed to save project');
+        return response.json();
     }
 
     async getProject(id: string): Promise<UnifiedProject | undefined> {
@@ -94,36 +95,44 @@ class BackendProvider implements StorageProvider {
         const response = await fetch(url);
         if (!response.ok) return [];
         const data = await response.json();
-        return Array.isArray(data) ? data.map(normalizeProject).filter(Boolean) as UnifiedProject[] : [];
+        const projects = Array.isArray(data) ? data.map(normalizeProject).filter(Boolean) as UnifiedProject[] : [];
+        return projects.filter(p => (p as any).status !== 'deleted');
     }
 
     async deleteProject(id: string, adminEmail?: string, adminPin?: string): Promise<void> {
-        const response = await fetch(`${API_URL}/projects/${id}?adminEmail=${encodeURIComponent(adminEmail || '')}&adminPin=${encodeURIComponent(adminPin || '')}`, {
-            method: 'DELETE'
-        });
-        if (!response.ok) throw new Error('Failed to delete project');
+        return this.updateProject(id, { status: 'deleted' }, adminEmail, adminPin);
     }
 
     async updateProject(id: string, updates: Partial<UnifiedProject>, adminEmail?: string, adminPin?: string): Promise<void> {
         const body = { ...updates } as any;
         if (adminEmail && adminPin) {
-            body.adminEmail = adminEmail;
-            body.adminPin = adminPin;
+            body.callerEmail = adminEmail;
+            body.callerPin = adminPin;
         }
         if (typeof body.projectManagerId !== 'undefined') {
             delete body.projectManagerId;
         }
 
-        if (updates.projectManager && typeof updates.projectManager === 'object') {
+        if (updates.projectManager === null) {
+            body.teamLeadId = null;
+        } else if (updates.projectManager && typeof updates.projectManager === 'object') {
             body.teamLeadId = Number((updates.projectManager as any).id);
         }
 
-        const response = await fetch(`${API_URL}/projects/${id}`, {
+        let url = `${API_URL}/projects/${id}`;
+        if (adminEmail && adminPin) {
+            url += `?callerEmail=${encodeURIComponent(adminEmail)}&callerPin=${encodeURIComponent(adminPin)}`;
+        }
+
+        const response = await fetch(url, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
-        if (!response.ok) throw new Error('Failed to update project');
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to update project: ${errorText || response.statusText}`);
+        }
     }
 
     // FIX: Saves AI-generated spreadsheet data to an existing project using the
@@ -245,7 +254,7 @@ class BackendProvider implements StorageProvider {
 }
 
 class IndexedDBProvider implements StorageProvider {
-    async saveProject(project: UnifiedProject): Promise<void> {
+    async saveProject(project: UnifiedProject): Promise<any> {
         return Promise.resolve();
     }
     async getProject(id: string): Promise<UnifiedProject | undefined> {
@@ -255,7 +264,7 @@ class IndexedDBProvider implements StorageProvider {
         return [];
     }
     async deleteProject(id: string): Promise<void> {
-        return Promise.resolve();
+        return this.updateProject(id, { status: 'deleted' });
     }
     async updateProject(id: string, updates: Partial<UnifiedProject>): Promise<void> {
         return Promise.resolve();

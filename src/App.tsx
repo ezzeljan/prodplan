@@ -5,6 +5,7 @@ import ProductionPlanMaker from "./components/ProductionPlanMaker";
 import ProductionPlanStorage from "./components/ProductionPlanStorage";
 import AdminDashboard from "./components/AdminDashboard";
 import ProjectsPage from "./components/ProjectsPage";
+import ProjectDetailsPage from "./components/ProjectDetailsPage";
 import SpreadsheetPage from "./components/SpreadsheetPage";
 import PortalLayout from "./components/portal/PortalLayout";
 import OperatorProjectsList from "./components/portal/OperatorProjectsList";
@@ -135,7 +136,8 @@ function MainLayout() {
         <Routes>
           <Route path="/" element={<ProductionPlanMaker />} />
           <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:id" element={<SpreadsheetPage />} />
+          <Route path="/projects/:id" element={<ProjectDetailsPage />} />
+          <Route path="/projects/:id/spreadsheet" element={<SpreadsheetPage />} />
           <Route path="/dashboard" element={<AdminDashboard />} />
           <Route path="/production-plan" element={<ProductionPlanStorage />} />
         </Routes>
