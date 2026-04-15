@@ -242,7 +242,7 @@ export default function TeamLeadDashboard() {
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-[var(--text-primary)] truncate">{op.name}</p>
                                         <p className="text-xs font-mono font-bold tracking-widest text-[var(--metric-green)]">
-                                            PIN: {op.pin || '------'}
+                                            PIN: {op.pinHash ? '******' : '------'}
                                         </p>
                                     </div>
                                     <p className="text-[10px] text-[var(--text-muted)] hidden sm:block truncate">

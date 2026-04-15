@@ -47,7 +47,7 @@ function getHomeRoute(role?: Role | null) {
   }
 }
 
-function RoleLoginRedirect({ children }: { children: JSX.Element }) {
+function RoleLoginRedirect({ children }: { children: React.ReactNode }) {
   const { authSession } = useAuth();
   const operatorSession = getOperatorSession();
 
@@ -67,7 +67,7 @@ function RequireAppRole({
   children,
 }: {
   role: Role;
-  children: JSX.Element;
+  children: React.ReactNode;
 }) {
   const { authSession } = useAuth();
   const operatorSession = getOperatorSession();
