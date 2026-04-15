@@ -10,7 +10,7 @@
 
 ## Overview
 
-**Prodly** is an AI-powered production planning agent developed by Lifewood OJT Group. It assists production teams in generating, analyzing, and optimizing production plans through a conversational AI interface — streamlining workflows and reducing manual planning overhead.
+**Prodly** is an AI-powered production planning agent developed by Lifewood OJT Group 3. It assists production teams in generating, analyzing, and optimizing production plans through a conversational AI interface — streamlining workflows and reducing manual planning overhead.
 
 ---
 
