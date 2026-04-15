@@ -79,7 +79,7 @@ export default function OperatorProjectView() {
         return (
             <div className="min-h-screen flex items-center justify-center gradient-bg">
                 <div className="flex flex-col items-center gap-4 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-2xl bg-[var(--accent-primary)]/5 flex items-center justify-center">
                         <Lock className="w-8 h-8 text-[var(--text-muted)]" />
                     </div>
                     <h2 className="text-lg font-semibold text-[var(--text-primary)]">Project not found</h2>
@@ -102,7 +102,7 @@ export default function OperatorProjectView() {
         return (
             <div className="min-h-screen flex items-center justify-center gradient-bg">
                 <div className="flex flex-col items-center gap-4 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-2xl bg-[var(--accent-primary)]/5 flex items-center justify-center">
                         <Lock className="w-8 h-8 text-[var(--text-muted)]" />
                     </div>
                     <h2 className="text-lg font-semibold text-[var(--text-primary)]">No assigned rows</h2>
@@ -127,28 +127,30 @@ export default function OperatorProjectView() {
             <header className="sticky top-0 z-30 bg-[#133020]/90 backdrop-blur-xl border-b border-white/10">
                 <div className="max-w-full mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
-                        <img
-                            src={logo}
-                            alt="Lifewood"
-                            className="h-7 w-auto object-contain brightness-0 invert shrink-0 hidden sm:block"
-                        />
+                        <div className="bg-[#F9F7F7]/90 rounded-full px-3 py-1.5">
+                            <img
+                                src={logo}
+                                alt="Lifewood"
+                                className="h-7 w-auto object-contain shrink-0 hidden sm:block"
+                            />
+                        </div>
                         <div className="w-px h-6 bg-white/10 hidden sm:block" />
 
                         <button
                             onClick={() => navigate('/portal')}
                             className="glass-card flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 transition-colors cursor-pointer shrink-0"
                         >
-                            <ArrowLeft className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
-                            <span className="text-xs text-[var(--text-secondary)]">My Projects</span>
+                            <ArrowLeft className="w-3.5 h-3.5 text-white/70" />
+                            <span className="text-xs text-white/70">My Projects</span>
                         </button>
 
                         <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-7 h-7 rounded-lg bg-[var(--accent-primary)]/15 flex items-center justify-center shrink-0">
-                                <span className="text-xs font-bold text-[var(--accent-secondary)]">
+                            <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
+                                <span className="text-xs font-bold text-white">
                                     {project!.name.charAt(0).toUpperCase()}
                                 </span>
                             </div>
-                            <span className="text-sm font-semibold text-[var(--text-primary)] truncate max-w-[200px]">
+                            <span className="text-sm font-semibold text-white truncate max-w-[200px]">
                                 {project!.name}
                             </span>
                         </div>
@@ -156,7 +158,7 @@ export default function OperatorProjectView() {
 
                     <div className="flex items-center gap-3">
                         <div className="text-right hidden sm:block">
-                            <p className="text-xs font-semibold text-[var(--text-primary)] leading-tight">
+                            <p className="text-xs font-semibold text-white leading-tight">
                                 {operator.name}
                             </p>
                         </div>
@@ -165,7 +167,7 @@ export default function OperatorProjectView() {
                             className="glass-card p-2 hover:bg-white/10 transition-colors cursor-pointer"
                             title="Sign out"
                         >
-                            <LogOut className="w-4 h-4 text-[var(--text-secondary)]" />
+                            <LogOut className="w-4 h-4 text-white/70" />
                         </button>
                     </div>
                 </div>

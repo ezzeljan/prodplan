@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { Users, ArrowRight, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/lifewood-logo.png';
+import DarkVeil from '../DarkVeil';
 
 export default function TeamLeadLogin() {
   const { login } = useAuth();
@@ -62,7 +63,15 @@ export default function TeamLeadLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white p-4 font-['Manrope',sans-serif]">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-4 font-['Manrope',sans-serif]">
+      <DarkVeil
+        noiseIntensity={0.05}
+        scanlineIntensity={0.1}
+        speed={0.5}
+        scanlineFrequency={80}
+        warpAmount={0.3}
+        colorTint={[0.039, 0.486, 0.306]}
+      />
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -70,16 +79,18 @@ export default function TeamLeadLogin() {
         className="w-full max-w-sm relative z-10"
       >
         <div className="flex flex-col items-center mb-8">
-          <img
-            src={logo}
-            alt="Lifewood"
-            className="h-10 w-auto object-contain mb-6"
-          />
-          <h1 className="text-xl font-bold text-zinc-900">Team Lead</h1>
-          <p className="text-sm text-zinc-500 mt-1">Sign in to view all projects</p>
+          <div className="bg-white/90 rounded-full px-4 py-2 mb-6">
+            <img
+              src={logo}
+              alt="Lifewood"
+              className="h-10 w-auto object-contain"
+            />
+          </div>
+          <h1 className="text-xl font-bold text-white">Team Lead</h1>
+          <p className="text-sm text-white/70 mt-1">Sign in to view all projects</p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-white border border-zinc-200 shadow-xl rounded-3xl p-6 space-y-5">
+        <form onSubmit={handleLogin} className="bg-white/90 backdrop-blur-sm border border-white/20 shadow-xl rounded-3xl p-6 space-y-5">
           {error && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}

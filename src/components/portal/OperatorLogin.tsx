@@ -3,6 +3,7 @@ import { useOperatorAuth } from '../../contexts/OperatorAuthContext';
 import { KeyRound, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import logo from '../../assets/lifewood-logo.png';
+import DarkVeil from '../DarkVeil';
 
 export default function OperatorLogin() {
     const { login } = useOperatorAuth();
@@ -28,26 +29,36 @@ export default function OperatorLogin() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-white px-4 font-['Manrope',sans-serif]">
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-4 font-['Manrope',sans-serif]">
+            <DarkVeil
+                noiseIntensity={0.05}
+                scanlineIntensity={0.1}
+                speed={0.5}
+                scanlineFrequency={80}
+                warpAmount={0.3}
+                colorTint={[0.039, 0.486, 0.306]}
+            />
             <motion.div
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                className="w-full max-w-sm"
+                className="w-full max-w-sm relative z-10"
             >
                 <div className="flex flex-col items-center mb-8">
-                    <img
-                        src={logo}
-                        alt="Lifewood"
-                        className="h-10 w-auto object-contain mb-6"
-                    />
-                    <h1 className="text-xl font-bold text-zinc-900">Operator Portal</h1>
-                    <p className="text-sm text-zinc-500 mt-1">
+                    <div className="bg-white/90 rounded-full px-4 py-2 mb-6">
+                        <img
+                            src={logo}
+                            alt="Lifewood"
+                            className="h-10 w-auto object-contain"
+                        />
+                    </div>
+                    <h1 className="text-xl font-bold text-white">Operator Portal</h1>
+                    <p className="text-sm text-white/70 mt-1">
                         Sign in to view your assigned output
                     </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="bg-white border border-zinc-200 shadow-xl rounded-3xl p-6 space-y-5">
+                <form onSubmit={handleSubmit} className="bg-white/90 backdrop-blur-sm border border-white/20 shadow-xl rounded-3xl p-6 space-y-5">
                     {error && (
                         <motion.div
                             initial={{ opacity: 0, height: 0 }}
@@ -68,12 +79,12 @@ export default function OperatorLogin() {
                                 value={pin}
                                 onChange={e => { setPin(e.target.value); setError(''); }}
                                 maxLength={6}
-                                className="w-full pl-10 pr-4 py-3 text-lg tracking-[0.5em] bg-zinc-50 border border-zinc-200 rounded-2xl focus:outline-none focus:border-[var(--accent-primary)] focus:ring-4 focus:ring-[var(--accent-primary)]/10 text-zinc-900 placeholder:text-zinc-400 placeholder:tracking-normal transition-all font-bold text-center"
+                                className="w-full pl-10 pr-4 py-3 text-lg bg-zinc-50 border border-zinc-200 rounded-2xl focus:outline-none focus:border-[var(--accent-primary)] focus:ring-4 focus:ring-[var(--accent-primary)]/10 text-zinc-900 placeholder:text-zinc-400 transition-all font-bold text-center tracking-[0.5em] placeholder:tracking-[0.5em]"
                                 placeholder="••••••"
                                 autoComplete="current-password"
                             />
                         </div>
-                        <p className="text-[10px] text-zinc-400 text-center mt-2 px-4 italic">
+                        <p className="text-[10px] text-zinc-500 text-center mt-2 px-4 italic">
                             Use your unique 6-digit company PIN to view your assigned projects.
                         </p>
                     </div>
@@ -98,7 +109,7 @@ export default function OperatorLogin() {
                     </button>
                 </form>
 
-                <p className="text-center text-xs text-zinc-500 mt-6 font-medium">
+                <p className="text-center text-xs text-white/70 mt-6 font-medium">
                     Contact your admin if you don't have an account.
                 </p>
             </motion.div>

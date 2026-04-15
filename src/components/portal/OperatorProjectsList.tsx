@@ -45,24 +45,26 @@ export default function OperatorProjectsList() {
             {/* Header */}
             <header className="sticky top-0 z-30 bg-[#133020]/90 backdrop-blur-xl border-b border-white/10">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-                    <img
-                        src={logo}
-                        alt="Lifewood"
-                        className="h-8 w-auto object-contain brightness-0 invert"
-                    />
+                    <div className="bg-[#F9F7F7]/90 rounded-full px-3 py-1.5">
+                        <img
+                            src={logo}
+                            alt="Lifewood"
+                            className="h-8 w-auto object-contain"
+                        />
+                    </div>
                     <div className="flex items-center gap-3">
                         <div className="text-right hidden sm:block">
-                            <p className="text-xs font-semibold text-[var(--text-primary)] leading-tight">
+                            <p className="text-xs font-semibold text-white leading-tight">
                                 {operator.name}
                             </p>
-                            <p className="text-[10px] text-[var(--text-muted)]">{operator.email}</p>
+                            <p className="text-[10px] text-white/60">{operator.email}</p>
                         </div>
                         <button
                             onClick={logout}
                             className="glass-card p-2 hover:bg-white/10 transition-colors cursor-pointer"
                             title="Sign out"
                         >
-                            <LogOut className="w-4 h-4 text-[var(--text-secondary)]" />
+                            <LogOut className="w-4 h-4 text-white/70" />
                         </button>
                     </div>
                 </div>
@@ -87,7 +89,7 @@ export default function OperatorProjectsList() {
                         animate={{ opacity: 1, y: 0 }}
                         className="flex flex-col items-center justify-center py-20 text-center"
                     >
-                        <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
+                        <div className="w-16 h-16 rounded-2xl bg-[var(--accent-primary)]/5 flex items-center justify-center mb-4">
                             <FolderOpen className="w-8 h-8 text-[var(--text-muted)]" />
                         </div>
                         <h2 className="text-base font-semibold text-[var(--text-primary)]">
@@ -140,7 +142,7 @@ export default function OperatorProjectsList() {
                                             ? 'bg-[var(--metric-green)]/10 text-[var(--metric-green)]'
                                             : project.status === 'completed'
                                             ? 'bg-[var(--metric-blue)]/10 text-[var(--metric-blue)]'
-                                            : 'bg-white/5 text-[var(--text-muted)]'
+                                            : 'bg-[var(--text-muted)]/10 text-[var(--text-muted)]'
                                     }`}>
                                         {project.status}
                                     </span>
