@@ -44,6 +44,8 @@ export default function TeamManagementModal({
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [copiedPin, setCopiedPin] = useState<string | null>(null);
+    const [addMode, setAddMode] = useState<'assigned' | 'existing'>('assigned');
+    const [availableOperators, setAvailableOperators] = useState<User[]>([]);
 
     // Form state for creating NEW lead
     const [formData, setFormData] = useState({
@@ -97,6 +99,47 @@ export default function TeamManagementModal({
             setLoading(false);
         }
     };
+
+    const loadAvailableOperators = async () => {
+        setLoading(true);
+        try {
+            const projectData = await storage.getProject(projectId);
+            const allUsers = await storage.getAllUsers();
+            const allOperators = allUsers.filter(u => u.role === Role.OPERATOR);
+            
+            const assignedIds = new Set((projectData?.operators || []).map(o => String(o.id)));
+            const available = allOperators.filter(op => !assignedIds.has(String(op.id)));
+            setAvailableOperators(available);
+        } catch (err) {
+            console.error('Failed to load available operators:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAddExisting = async (operatorId: string) => {
+        if (!authSession) {
+            setError('Auth session expired. Please login again.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await storage.assignOperator(projectId, operatorId, authSession.email, authSession.pin);
+            await loadOperators();
+            await loadAvailableOperators();
+        } catch (err: any) {
+            setError(err.message || 'Failed to add operator to project.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (mode === 'operators' && addMode === 'existing') {
+            loadAvailableOperators();
+        }
+    }, [addMode, projectId, mode]);
 
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -401,57 +444,112 @@ export default function TeamManagementModal({
                     ) : (
                         /* Operators Mode */
                         <div className="space-y-4">
-                            <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-wider ml-1 flex items-center justify-between">
-                                Current Project Operators
-                                <span>{operators.length} Active</span>
-                            </h3>
+                            <div className="flex items-center gap-2 p-1 bg-white/5 rounded-xl">
+                                <button
+                                    onClick={() => setAddMode('assigned')}
+                                    className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors ${addMode === 'assigned' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'}`}
+                                >
+                                    Assigned ({operators.length})
+                                </button>
+                                <button
+                                    onClick={() => setAddMode('existing')}
+                                    className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors ${addMode === 'existing' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'}`}
+                                >
+                                    Add Existing ({availableOperators.length})
+                                </button>
+                            </div>
 
-                            {loading && operators.length === 0 ? (
-                                <div className="py-10 flex flex-col items-center justify-center gap-3">
-                                    <Loader2 className="w-6 h-6 text-white/20 animate-spin" />
-                                    <p className="text-xs text-white/20">Loading operators...</p>
-                                </div>
-                            ) : (
-                                <div className="grid gap-3">
-                                    {operators.length === 0 && !loading && (
+                            {addMode === 'existing' ? (
+                                <div className="space-y-3 max-h-[40vh] overflow-y-auto custom-scrollbar pr-2">
+                                    {loading && availableOperators.length === 0 ? (
+                                        <div className="py-10 flex flex-col items-center justify-center gap-3">
+                                            <Loader2 className="w-6 h-6 text-white/20 animate-spin" />
+                                            <p className="text-xs text-white/20">Loading available operators...</p>
+                                        </div>
+                                    ) : availableOperators.length === 0 ? (
                                         <div className="py-12 glass-card border border-dashed border-white/10 flex flex-col items-center justify-center text-center p-8">
                                             <UserCircle className="w-10 h-10 text-white/10 mb-3" />
-                                            <p className="text-sm text-white/60 mb-1">No operators assigned</p>
-                                            <p className="text-xs text-white/30">Add your first team member to start managing operations.</p>
+                                            <p className="text-sm text-white/60 mb-1">No available operators</p>
+                                            <p className="text-xs text-white/30">All operators may already be assigned to this project.</p>
                                         </div>
-                                    )}
-                                    {operators.map((u) => (
-                                        <div key={u.id} className="glass-card p-4 flex items-center justify-between group">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
-                                                    <span className="text-xs font-bold text-white/40">{u.name.charAt(0).toUpperCase()}</span>
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-sm font-semibold text-white">{u.name}</h4>
-                                                    <div className="flex items-center gap-2 mt-0.5">
+                                    ) : (
+                                        availableOperators.map((u) => (
+                                            <div key={u.id} className="glass-card p-4 flex items-center justify-between group hover:border-white/20 transition-all">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                                                        <span className="text-xs font-bold text-white/40">{u.name.charAt(0).toUpperCase()}</span>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-sm font-semibold text-white">{u.name}</h4>
                                                         <span className="text-[10px] text-white/40">{u.email}</span>
-                                                        {u.pin && (
-                                                            <button
-                                                                onClick={() => copyToClipboard(u.pin!)}
-                                                                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/5 border border-white/5 hover:bg-white/10 transition-colors"
-                                                            >
-                                                                <span className="text-[9px] font-mono text-[var(--accent-secondary)]">PIN: {u.pin}</span>
-                                                                {copiedPin === u.pin ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Copy className="w-2.5 h-2.5 text-white/20" />}
-                                                            </button>
-                                                        )}
                                                     </div>
                                                 </div>
+                                                <button
+                                                    onClick={() => handleAddExisting(u.id)}
+                                                    disabled={loading}
+                                                    className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-white/5 hover:bg-[var(--accent-secondary)] hover:text-white transition-all border border-white/5 disabled:opacity-50"
+                                                >
+                                                    Add to Project
+                                                </button>
                                             </div>
-                                            <button
-                                                onClick={() => handleRemoveOperator(u.id)}
-                                                className="p-2 text-white/20 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                                title="Remove from project"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))}
+                                        ))
+                                    )}
                                 </div>
+                            ) : (
+                                <>
+                                    <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-wider ml-1 flex items-center justify-between">
+                                        Current Project Operators
+                                        <span>{operators.length} Active</span>
+                                    </h3>
+
+                                    {loading && operators.length === 0 ? (
+                                        <div className="py-10 flex flex-col items-center justify-center gap-3">
+                                            <Loader2 className="w-6 h-6 text-white/20 animate-spin" />
+                                            <p className="text-xs text-white/20">Loading operators...</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid gap-3">
+                                            {operators.length === 0 && !loading && (
+                                                <div className="py-12 glass-card border border-dashed border-white/10 flex flex-col items-center justify-center text-center p-8">
+                                                    <UserCircle className="w-10 h-10 text-white/10 mb-3" />
+                                                    <p className="text-sm text-white/60 mb-1">No operators assigned</p>
+                                                    <p className="text-xs text-white/30">Add your first team member to start managing operations.</p>
+                                                </div>
+                                            )}
+                                            {operators.map((u) => (
+                                                <div key={u.id} className="glass-card p-4 flex items-center justify-between group">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
+                                                            <span className="text-xs font-bold text-white/40">{u.name.charAt(0).toUpperCase()}</span>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-semibold text-white">{u.name}</h4>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                <span className="text-[10px] text-white/40">{u.email}</span>
+                                                                {u.pin && (
+                                                                    <button
+                                                                        onClick={() => copyToClipboard(u.pin!)}
+                                                                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/5 border border-white/5 hover:bg-white/10 transition-colors"
+                                                                    >
+                                                                        <span className="text-[9px] font-mono text-[var(--accent-secondary)]">PIN: {u.pin}</span>
+                                                                        {copiedPin === u.pin ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Copy className="w-2.5 h-2.5 text-white/20" />}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleRemoveOperator(u.id)}
+                                                        className="p-2 text-white/20 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                        title="Remove from project"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     )}

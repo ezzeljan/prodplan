@@ -21,7 +21,7 @@ export default function ProjectDetailsPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const location = useLocation();
-    const { isAdmin } = useUser();
+    const { isAdmin, isTeamLead } = useUser();
     const [project, setProject] = useState<UnifiedProject | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -228,7 +228,7 @@ export default function ProjectDetailsPage() {
                                         <Users className="w-3.5 h-3.5 text-[var(--accent-secondary)]" />
                                         <span className="text-xs font-bold text-[var(--text-secondary)]">{project.operators?.length || 0} Operators</span>
                                     </div>
-                                    {isAdmin && (
+                                    {isTeamLead && (
                                         <button 
                                             onClick={() => { setModalMode('operators'); setIsTeamModalOpen(true); }}
                                             className="text-[10px] font-bold text-[var(--accent-secondary)] uppercase tracking-[0.1em] hover:underline"
