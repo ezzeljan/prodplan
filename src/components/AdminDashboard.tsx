@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useProjects, ProjectMetrics } from '../contexts/ProjectContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -113,6 +114,7 @@ function OperatorRow({
 
 // ─── Main Dashboard ───
 export default function AdminDashboard() {
+    const navigate = useNavigate();
     const { projects, activeProjectId, setActiveProjectId, getProjectMetrics, updateProject } = useProjects();
     const [filterOpen, setFilterOpen] = useState(false);
     const [selectedPersonnelId, setSelectedPersonnelId] = useState<string | null>(null);
@@ -414,11 +416,11 @@ export default function AdminDashboard() {
                         <div className="relative z-10">
                             <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Want to create a new project?</h2>
                             <button
-                                onClick={() => window.location.href = '/'}
+                                onClick={() => navigate('/')}
                                 className="bg-[#FFB347] text-black px-8 py-3 rounded-2xl font-bold text-sm hover:shadow-2xl hover:shadow-[#FFB347]/40 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                             >
-                                <Plus className="w-5 h-5" />
-                                Create Project
+                                {/* <Plus className="w-5 h-5" /> */}
+                                Go to Projects
                             </button>
                         </div>
                         <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-[var(--accent-primary)]/5 rounded-full blur-3xl pointer-events-none group-hover:bg-[var(--accent-primary)]/10 transition-colors" />
