@@ -214,12 +214,13 @@ export default function ProjectsPage() {
                             key={f}
                             onClick={() => setFilter(f)}
                             className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${filter === f
-                                    ? 'bg-[var(--accent-primary)] text-white shadow-md'
+                                    ? 'bg-[#FFB347] text-[#133020]'
                                     : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
                                 }`}
+                            style={filter === f ? {} : { borderColor: 'rgba(0,0,0,0.2)' }}
                         >
                             <span className="capitalize">{f}</span>
-                            <span className={`text-xs px-1.5 py-0.5 rounded-md ${filter === f ? 'bg-white/20' : 'bg-white/5'
+                            <span className={`text-xs px-1.5 py-0.5 rounded-md ${filter === f ? 'bg-[#133020]/20' : 'bg-white/5'
                                 }`}>
                                 {filterCounts[f]}
                             </span>
@@ -343,8 +344,8 @@ export default function ProjectsPage() {
 
                                         {/* Project Name & Status */}
                                         <div className="flex items-start gap-3 mb-3 pr-8">
-                                            <div className="w-10 h-10 rounded-xl bg-[var(--accent-primary)]/15 flex items-center justify-center shrink-0 mt-0.5">
-                                                <span className="text-sm font-bold text-[var(--accent-secondary)]">
+                                            <div className="w-10 h-10 rounded-xl bg-[#FFB347]/15 flex items-center justify-center shrink-0 mt-0.5">
+                                                <span className="text-sm font-bold text-[#FFB347]">
                                                     {project.name.charAt(0).toUpperCase()}
                                                 </span>
                                             </div>
