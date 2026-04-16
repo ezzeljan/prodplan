@@ -7,6 +7,7 @@ import TeamLeadDashboard from './TeamLeadDashboard';
 import TeamLeadProjectsPage from './TeamLeadProjectsPage';
 import ProjectDetailsPage from './ProjectDetailsPage';
 import SpreadsheetPage from './SpreadsheetPage';
+import SpreadsheetNotAvailable from './SpreadsheetNotAvailable';
 import ProductionPlanMaker from './ProductionPlanMaker';
 import ProductionPlanStorage from './ProductionPlanStorage';
 import logo from '../assets/lifewood-logo.png';
@@ -250,6 +251,11 @@ export default function TeamLeadLayout() {
           <Route path="projects/:id/spreadsheet" element={
             <AISpreadsheetProvider>
               <SpreadsheetPage />
+            </AISpreadsheetProvider>
+          } />
+          <Route path="projects/:id/spreadsheet-pending" element={
+            <AISpreadsheetProvider>
+              <SpreadsheetNotAvailable />
             </AISpreadsheetProvider>
           } />
           {/* Production Plan Maker — accessed via Talk to AI Agent button */}

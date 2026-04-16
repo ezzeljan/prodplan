@@ -7,6 +7,7 @@ import AdminDashboard from "./components/AdminDashboard";
 import ProjectsPage from "./components/ProjectsPage";
 import ProjectDetailsPage from "./components/ProjectDetailsPage";
 import SpreadsheetPage from "./components/SpreadsheetPage";
+import SpreadsheetNotAvailable from "./components/SpreadsheetNotAvailable";
 import PortalLayout from "./components/portal/PortalLayout";
 import OperatorProjectsList from "./components/portal/OperatorProjectsList";
 import OperatorProjectView from "./components/portal/OperatorProjectView";
@@ -128,6 +129,7 @@ useEffect(() => {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailsPage />} />
           <Route path="/projects/:id/spreadsheet" element={<SpreadsheetPage />} />
+          <Route path="/projects/:id/spreadsheet-pending" element={<SpreadsheetNotAvailable />} />
           <Route path="/dashboard" element={<AdminDashboard />} />
           <Route path="/production-plan" element={<ProductionPlanStorage />} />
           <Route path="/users" element={<UsersPage />} />

@@ -74,8 +74,8 @@ export default function ProjectDetailsPage() {
         project.spreadsheetData.rows.length > 0;
 
     const spreadsheetPath = isTeamLeadPath 
-        ? (hasSpreadsheet ? `/teamlead-dashboard/projects/${id}/spreadsheet` : `/teamlead-dashboard/plan?projectId=${id}`)
-        : (hasSpreadsheet ? `/projects/${id}/spreadsheet` : `/?projectId=${id}`);
+        ? (hasSpreadsheet ? `/teamlead-dashboard/projects/${id}/spreadsheet` : `/teamlead-dashboard/projects/${id}/spreadsheet-pending`)
+        : (hasSpreadsheet ? `/projects/${id}/spreadsheet` : `/projects/${id}/spreadsheet-pending`);
 
     if (loading) {
         return (
