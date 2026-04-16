@@ -100,6 +100,6 @@ This project is deployed via **Vercel** for the frontend. To deploy your own ins
 
 ## Team
 
-Developed by the **Lifewood OJT Group** as part of an on-the-job training project.
+Developed by the **Lifewood OJT Group 3** as part of an on-the-job training project.
 
 ---
