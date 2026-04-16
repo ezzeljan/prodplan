@@ -286,7 +286,7 @@ export default function AdminDashboard() {
                         <div className="relative z-10 flex flex-col items-center">
                             <h2 className="text-xl font-bold text-white mb-4">Want to create a new project?</h2>
                             <button
-                                onClick={() => navigate('/')}
+                                onClick={() => navigate('/projects')}
                                 className="bg-[#FFB347] text-black px-8 py-3 rounded-2xl font-bold text-sm hover:shadow-2xl hover:shadow-[#FFB347]/40 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                             >
                                 {/* <Plus className="w-5 h-5" /> */}
