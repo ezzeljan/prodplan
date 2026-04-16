@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Routes, Route } from 'react-router-dom';
-import { Menu, X, Home, FolderOpen, ChevronLeft, ChevronRight, LogOut, Sun, Moon } from 'lucide-react';
+import { Menu, X, Home, FolderOpen, ChevronLeft, ChevronRight, LogOut, Sun, Moon, LayoutDashboard, FileText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AISpreadsheetProvider } from '../contexts/AISpreadsheetContext';
 import TeamLeadDashboard from './TeamLeadDashboard';
@@ -8,12 +8,15 @@ import TeamLeadProjectsPage from './TeamLeadProjectsPage';
 import ProjectDetailsPage from './ProjectDetailsPage';
 import SpreadsheetPage from './SpreadsheetPage';
 import ProductionPlanMaker from './ProductionPlanMaker';
+import ProductionPlanStorage from './ProductionPlanStorage';
 import logo from '../assets/lifewood-logo.png';
 import icon from '../assets/icon.png';
 
 const navWithIcons = [
-  { label: "Dashboard", href: "/teamlead-dashboard", icon: <Home className="w-5 h-5" /> },
+  { label: "Chat", href: "/teamlead-dashboard/plan", icon: <Home className="w-5 h-5" /> },
+  { label: "Dashboard", href: "/teamlead-dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
   { label: "Projects", href: "/teamlead-dashboard/projects", icon: <FolderOpen className="w-5 h-5" /> },
+  { label: "Production Plans", href: "/teamlead-dashboard/production-plans", icon: <FileText className="w-5 h-5" /> },
 ];
 
 export default function TeamLeadLayout() {
@@ -253,6 +256,11 @@ export default function TeamLeadLayout() {
           <Route path="plan" element={
             <AISpreadsheetProvider>
               <ProductionPlanMaker />
+            </AISpreadsheetProvider>
+          } />
+          <Route path="production-plans" element={
+            <AISpreadsheetProvider>
+              <ProductionPlanStorage />
             </AISpreadsheetProvider>
           } />
         </Routes>

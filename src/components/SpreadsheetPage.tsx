@@ -121,11 +121,15 @@ export default function SpreadsheetPage() {
                     <p className="text-sm text-[var(--text-secondary)] max-w-md">
                         The AI plan for <strong>{project?.name}</strong> hasn't been generated yet. Go to the AI Agent chat and generate the production plan first.
                     </p>
-                    {isTeamLead && project && (
+                    {(isAdmin || isTeamLead) && project && (
                         <button
-                            onClick={() => navigate(`/teamlead-dashboard/plan?projectId=${project.id}`)}
+                            onClick={() => {
+                                const path = isAdmin ? '/' : '/teamlead-dashboard/plan';
+                                navigate(`${path}?projectId=${project.id}`);
+                            }}
                             className="glass-btn text-sm flex items-center gap-2 mt-2"
                         >
+                            <MessageSquare className="w-4 h-4" />
                             Go to AI Agent
                         </button>
                     )}

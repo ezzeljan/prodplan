@@ -216,8 +216,17 @@ export default function ProjectSetupView({ onComplete, onReset }: ProjectSetupVi
                 )}
 
                 {!loading && !error && projects.length === 0 && (
-                    <div className="text-center py-8 text-[var(--text-muted)] text-sm">
-                        No projects assigned to you yet. Ask your admin to assign you to a project.
+                    <div className="flex flex-col items-center justify-center py-12 px-6 text-center animate-in fade-in zoom-in-95 duration-500">
+                        <div className="w-20 h-20 rounded-3xl bg-[var(--accent-primary)]/10 flex items-center justify-center mb-6">
+                            <Sparkles className="w-10 h-10 text-[var(--accent-secondary)] opacity-40" />
+                        </div>
+                        <h3 className="text-xl font-bold text-[var(--text-primary)] mb-3">No Active Assignments</h3>
+                        <p className="text-[var(--text-secondary)] text-sm max-w-[280px] leading-relaxed">
+                            Your AI workspace is ready, but you haven't been assigned to any projects yet. 
+                        </p>
+                        <div className="mt-6 p-4 rounded-2xl bg-white/5 border border-white/5 text-xs text-[var(--text-muted)] italic">
+                            Contact your administrator to link your account to a production project.
+                        </div>
                     </div>
                 )}
 
