@@ -14,11 +14,13 @@ import {
     Plus,
     UserCircle,
     Copy,
-    Check
+    Check,
+    Eye
 } from 'lucide-react';
 import { storage } from '../utils/storageProvider';
 import { User, Role } from '../types/auth';
 import { useAuth } from '../contexts/AuthContext';
+import { useUser } from '../contexts/UserContext';
 
 interface TeamManagementModalProps {
     projectId: string;
@@ -36,6 +38,7 @@ export default function TeamManagementModal({
     mode = 'operators'
 }: TeamManagementModalProps) {
     const { authSession } = useAuth();
+    const { isAdmin, isTeamLead } = useUser();
     const [teamLeads, setTeamLeads] = useState<User[]>([]);
     const [operators, setOperators] = useState<User[]>([]);
     const [assignedLead, setAssignedLead] = useState<User | null>(null);
@@ -56,13 +59,18 @@ export default function TeamManagementModal({
 
     useEffect(() => {
         if (isOpen) {
+            // Force admins to see only assigned operators (view-only mode)
+            if (isAdmin && mode === 'operators') {
+                setAddMode('assigned');
+            }
+            
             if (mode === 'leads') {
                 loadTeamLeads();
             } else {
                 loadOperators();
             }
         }
-    }, [isOpen, projectId, mode]);
+    }, [isOpen, projectId, mode, isAdmin]);
 
     const loadOperators = async () => {
         setLoading(true);
@@ -287,24 +295,39 @@ export default function TeamManagementModal({
 
                     {/* Add Personnel Form/Show Button */}
                     {mode === 'operators' && (
-                        !isAdding ? (
-                            <button
-                                onClick={() => setIsAdding(true)}
-                                className="w-full py-4 px-6 rounded-2xl border-2 border-dashed border-white/10 hover:border-[var(--accent-primary)]/50 hover:bg-[var(--accent-primary)]/5 transition-all flex items-center justify-center gap-3 group mb-8"
-                            >
-                                <UserPlus className="w-5 h-5 text-white/30 group-hover:text-[var(--accent-secondary)] transition-colors" />
-                                <span className="text-sm font-medium text-white/50 group-hover:text-white transition-colors">
-                                    Register New Operator
-                                </span>
-                            </button>
-                        ) : (
-                            <motion.form
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                onSubmit={handleAddUser}
-                                className="glass-card p-6 mb-8 border-[var(--accent-primary)]/20"
-                            >
-                                <div className="flex items-center justify-between mb-6">
+                        <>
+                            {isAdmin && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    className="mb-6 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-start gap-3 text-blue-300 text-sm"
+                                >
+                                    <Eye className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-semibold mb-1">View Only</p>
+                                        <p className="text-xs text-blue-200/80">Admins can view operators but cannot modify them. Team leads manage operators for their projects.</p>
+                                    </div>
+                                </motion.div>
+                            )}
+                            {!isAdmin && (
+                                !isAdding ? (
+                                    <button
+                                        onClick={() => setIsAdding(true)}
+                                        className="w-full py-4 px-6 rounded-2xl border-2 border-dashed border-white/10 hover:border-[var(--accent-primary)]/50 hover:bg-[var(--accent-primary)]/5 transition-all flex items-center justify-center gap-3 group mb-8"
+                                    >
+                                        <UserPlus className="w-5 h-5 text-white/30 group-hover:text-[var(--accent-secondary)] transition-colors" />
+                                        <span className="text-sm font-medium text-white/50 group-hover:text-white transition-colors">
+                                            Register New Operator
+                                        </span>
+                                    </button>
+                                ) : (
+                                    <motion.form
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        onSubmit={handleAddUser}
+                                        className="glass-card p-6 mb-8 border-[var(--accent-primary)]/20"
+                                    >
+                                        <div className="flex items-center justify-between mb-6">
                                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                                         <Shield className="w-4 h-4 text-[var(--accent-secondary)]" />
                                         Register New Operator
@@ -366,7 +389,9 @@ export default function TeamManagementModal({
                                     Register & Assign Operator
                                 </button>
                             </motion.form>
-                        )
+                                )
+                            )}
+                        </>
                     )}
 
                     {mode === 'leads' ? (
@@ -444,20 +469,22 @@ export default function TeamManagementModal({
                     ) : (
                         /* Operators Mode */
                         <div className="space-y-4">
-                            <div className="flex items-center gap-2 p-1 bg-white/5 rounded-xl">
-                                <button
-                                    onClick={() => setAddMode('assigned')}
-                                    className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors ${addMode === 'assigned' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'}`}
-                                >
-                                    Assigned ({operators.length})
-                                </button>
-                                <button
-                                    onClick={() => setAddMode('existing')}
-                                    className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors ${addMode === 'existing' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'}`}
-                                >
-                                    Add Existing ({availableOperators.length})
-                                </button>
-                            </div>
+                            {!isAdmin && (
+                                <div className="flex items-center gap-2 p-1 bg-white/5 rounded-xl">
+                                    <button
+                                        onClick={() => setAddMode('assigned')}
+                                        className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors ${addMode === 'assigned' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'}`}
+                                    >
+                                        Assigned ({operators.length})
+                                    </button>
+                                    <button
+                                        onClick={() => setAddMode('existing')}
+                                        className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors ${addMode === 'existing' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'}`}
+                                    >
+                                        Add Existing ({availableOperators.length})
+                                    </button>
+                                </div>
+                            )}
 
                             {addMode === 'existing' ? (
                                 <div className="space-y-3 max-h-[40vh] overflow-y-auto custom-scrollbar pr-2">
@@ -486,8 +513,8 @@ export default function TeamManagementModal({
                                                 </div>
                                                 <button
                                                     onClick={() => handleAddExisting(u.id)}
-                                                    disabled={loading}
-                                                    className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-white/5 hover:bg-[var(--accent-secondary)] hover:text-white transition-all border border-white/5 disabled:opacity-50"
+                                                    disabled={loading || isAdmin}
+                                                    className="px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-white/5 hover:bg-[var(--accent-secondary)] hover:text-white transition-all border border-white/5 disabled:opacity-50 disabled:hover:bg-white/5 disabled:cursor-not-allowed"
                                                 >
                                                     Add to Project
                                                 </button>
@@ -540,8 +567,9 @@ export default function TeamManagementModal({
                                                     </div>
                                                     <button
                                                         onClick={() => handleRemoveOperator(u.id)}
-                                                        className="p-2 text-white/20 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                                        title="Remove from project"
+                                                        disabled={isAdmin}
+                                                        className="p-2 text-white/20 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
+                                                        title={isAdmin ? "Admins cannot remove operators" : "Remove from project"}
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
