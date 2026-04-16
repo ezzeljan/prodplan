@@ -43,6 +43,8 @@ import ChatInput from "./chat/ChatInput";
 import FilePreview from "./chat/FilePreview";
 
 import { useAISpreadsheet } from "../contexts/AISpreadsheetContext";
+import { useAuth } from "../contexts/AuthContext";
+import { useUser } from "../contexts/UserContext";
 import { projectDataToSpreadsheet } from "../utils/spreadsheetConverter";
 import { useNavigate } from "react-router-dom";
 import { storage } from "../utils/storageProvider";
@@ -326,6 +328,8 @@ export default function ProductionPlanMaker() {
   const [currentProjectName, setCurrentProjectName] = useState("");
 
   const { setLastCreated } = useAISpreadsheet();
+  const { authSession } = useAuth();
+  const { isTeamLead } = useUser();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -372,6 +376,14 @@ export default function ProductionPlanMaker() {
       return;
     }
 
+    // For Team Leads: Always show project selection view (no session restoration)
+    if (isTeamLead) {
+      setIsProjectStarted(false);
+      setActiveSessionId(Date.now().toString());
+      return;
+    }
+
+    // For Admins: Restore from session history if available
     if (stored.length > 0) {
       const filtered = stored.filter(s => !deletedSessionsRef.current.has(s.id));
       if (filtered.length > 0) {
@@ -392,7 +404,7 @@ export default function ProductionPlanMaker() {
     } else {
       setActiveSessionId(Date.now().toString());
     }
-  }, [searchParams]);
+  }, [searchParams, isTeamLead]);
 
   useEffect(() => {
     if (!activeSessionId) return;
@@ -552,6 +564,16 @@ export default function ProductionPlanMaker() {
     setCurrentProjectName(projectName);
     setLastSavedProjectId(projectId);
     setIsProjectStarted(true);
+
+    // Load project data from storage
+    try {
+      const projectData = await storage.getProject(projectId);
+      if (projectData) {
+        setCurrentProject(projectData as Partial<ProjectData>);
+      }
+    } catch (err) {
+      console.error('Failed to load project data:', err);
+    }
 
     const initialMsg: Message = {
       id: Date.now().toString(),
