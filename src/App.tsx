@@ -89,21 +89,12 @@ function RequireAppRole({
 
 function MainLayout() {
   const { authSession, isSignedIn } = useAuth();
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarExpanded] = useState(true);
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 768 : true,
   );
 
-  useEffect(() => {
-    const onChange = (event: Event) => {
-      const custom = event as CustomEvent<boolean>;
-      setSidebarExpanded(!!custom?.detail);
-    };
-    window.addEventListener("sidebar-expanded-change", onChange);
-    return () => window.removeEventListener("sidebar-expanded-change", onChange);
-  }, []);
-
-  useEffect(() => {
+useEffect(() => {
     const onResize = () => {
       setIsDesktop(window.innerWidth >= 768);
     };
@@ -111,9 +102,7 @@ function MainLayout() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const sidebarOffset = useMemo(() => (sidebarExpanded ? 256 : 64), [
-    sidebarExpanded,
-  ]);
+  const sidebarOffset = useMemo(() => 256, []);
 
   if (!isSignedIn) {
     return <Navigate to="/portal" replace />;

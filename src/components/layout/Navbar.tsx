@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Home, FileSpreadsheet, ChevronLeft, ChevronRight, History, BarChart3, FolderOpen, LogOut, Sun, Moon } from "lucide-react";
+import { Menu, X, Home, FileSpreadsheet, History, BarChart3, FolderOpen, LogOut, Sun, Moon } from "lucide-react";
 import { useAISpreadsheet } from "../../contexts/AISpreadsheetContext";
 import { useAuth } from "../../contexts/AuthContext";
 import logo from "../../assets/lifewood-logo.png";
@@ -13,21 +13,14 @@ const navWithIcons = [
 ];
 
 const Navbar = () => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isDark, setIsDark] = useState(() => localStorage.getItem("theme") === "dark");
   const { hasNewData } = useAISpreadsheet();
-  const { logout } = useAuth();
+  const { logout, authSession } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const event = new CustomEvent("sidebar-expanded-change", {
-      detail: isExpanded,
-    });
-    window.dispatchEvent(event);
-  }, [isExpanded]);
 
   useEffect(() => {
     if (localStorage.getItem("theme") === "dark") {
@@ -58,29 +51,12 @@ const Navbar = () => {
     <>
       {/* Desktop Sidebar */}
       <nav
-        className={`hidden md:flex flex-col fixed left-0 top-0 h-full bg-[#133020]/90 backdrop-blur-xl shadow-sm z-50 overflow-x-hidden transition-all duration-300 ease-in-out ${isExpanded ? "w-64" : "w-16"}`}
+        className="hidden md:flex flex-col fixed left-0 top-0 h-full bg-[#133020]/90 backdrop-blur-xl shadow-sm z-50 overflow-x-hidden transition-all duration-300 ease-in-out w-64"
       >
-        <div className={`flex items-center h-20 border-b border-white/10 ${isExpanded ? "justify-start px-6 gap-3 bg-white/5" : "justify-center w-full"}`}>
-          {!isExpanded && (
-            <button
-              type="button"
-              onClick={() => setIsExpanded(true)}
-              className="relative inline-flex items-center justify-center w-10 h-10 shrink-0 group transition-transform hover:scale-105"
-              aria-label="Expand sidebar"
-            >
-              <img
-                src={icon}
-                alt="Toggle Sidebar"
-                className="w-10 h-10 object-contain transition-opacity duration-150 group-hover:opacity-0"
-              />
-              <ChevronRight
-                className="absolute w-5 h-5 text-white opacity-0 translate-x-0.5 group-hover:opacity-100 transition-opacity duration-150"
-              />
-            </button>
-          )}
+        <div className="flex items-center h-20 border-b border-white/10 justify-start px-6 gap-3 bg-white/5">
           <Link
             to="/dashboard"
-            className={`overflow-hidden transition-all duration-300 flex items-center h-12 cursor-pointer ${isExpanded ? "w-auto opacity-100" : "w-0 opacity-0 hidden"}`}
+            className="overflow-hidden transition-all duration-300 flex items-center h-12 cursor-pointer w-auto opacity-100"
             onClick={(e) => {
               if (location.pathname === "/") {
                 e.preventDefault();
@@ -95,21 +71,10 @@ const Navbar = () => {
               />
             </div>
           </Link>
-          {isExpanded && (
-            <button
-              type="button"
-              onClick={() => setIsExpanded(false)}
-              className="ml-auto p-2 rounded-full hover:bg-white/10 text-white transition-colors"
-              aria-label="Collapse sidebar"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-          )}
         </div>
 
         <div
-          className={`flex-1 py-6 flex flex-col gap-2 overflow-y-auto ${isExpanded ? "px-3" : "px-0"
-            }`}
+          className="flex-1 py-6 flex flex-col gap-2 overflow-y-auto px-3"
         >
           {navWithIcons.map((item) => {
             const isActive = item.href === '/projects'
@@ -119,14 +84,11 @@ const Navbar = () => {
               <Link
                 key={item.label}
                 to={item.href}
-                className={`flex items-center rounded-full transition-colors ${isExpanded
-                  ? "justify-start gap-4 px-3 py-3"
-                  : "justify-center w-12 h-12 mx-auto"
-                  } ${isActive
+                className={`flex items-center rounded-full transition-colors justify-start gap-4 px-3 py-3 ${isActive
                     ? "bg-[#046241] text-white font-semibold"
                     : "text-white/70 hover:bg-white/10 hover:text-white"
                   }`}
-                title={!isExpanded ? item.label : undefined}
+                title={item.label}
               >
                 <div className="flex-shrink-0 relative">
                   {item.icon}
@@ -134,7 +96,7 @@ const Navbar = () => {
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[var(--accent-secondary)] rounded-full animate-pulse" />
                   )}
                 </div>
-                <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
+                <span className="whitespace-nowrap transition-opacity duration-300 opacity-100">
                   {item.label}
                 </span>
               </Link>
@@ -144,9 +106,19 @@ const Navbar = () => {
 
         {/* Bottom Actions */}
         <div
-          className={`border-t border-white/10 mt-auto flex flex-col gap-2 ${isExpanded ? "p-3" : "px-0 py-3"
-            }`}
+          className="border-t border-white/10 mt-auto flex flex-col gap-2 p-3"
         >
+          {/* User Profile */}
+          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/5">
+            <div className="w-9 h-9 rounded-full bg-[#046241] flex items-center justify-center text-white font-semibold text-sm">
+              {authSession?.email?.charAt(0).toUpperCase() || "U"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white truncate">{authSession?.email || "User"}</p>
+              <p className="text-[10px] text-white/50 capitalize">{authSession?.role?.replace("_", " ") || "Admin"}</p>
+            </div>
+          </div>
+
           <button
             onClick={() => {
               if (location.pathname !== "/") {
@@ -164,11 +136,8 @@ const Navbar = () => {
                 );
               }
             }}
-            className={`flex items-center rounded-full transition-colors text-white/70 hover:bg-white/10 hover:text-white ${isExpanded
-              ? "justify-start gap-4 px-3 py-3 w-full"
-              : "justify-center w-12 h-12 mx-auto"
-              }`}
-            title={!isExpanded ? "Chat History" : undefined}
+            className="flex items-center rounded-full transition-colors text-white/70 hover:bg-white/10 hover:text-white justify-start gap-4 px-3 py-3 w-full"
+            title="Chat History"
           >
             <div className="flex-shrink-0"><History className="w-5 h-5" /></div>
             <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
@@ -178,30 +147,24 @@ const Navbar = () => {
 
           <button
             onClick={toggleTheme}
-            className={`flex items-center rounded-full transition-colors text-white/70 hover:bg-white/10 hover:text-white ${isExpanded
-              ? "justify-start gap-4 px-3 py-3 w-full"
-              : "justify-center w-12 h-12 mx-auto"
-              }`}
-            title={!isExpanded ? (isDark ? "Light Mode" : "Dark Mode") : undefined}
+            className="flex items-center rounded-full transition-colors text-white/70 hover:bg-white/10 hover:text-white justify-start gap-4 px-3 py-3 w-full"
+            title={isDark ? "Light Mode" : "Dark Mode"}
           >
             <div className="flex-shrink-0">
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </div>
-            <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
+            <span className="whitespace-nowrap transition-opacity duration-300 opacity-100">
               {isDark ? "Light Mode" : "Dark Mode"}
             </span>
           </button>
 
           <button
             onClick={() => setShowLogoutConfirm(true)}
-            className={`flex items-center rounded-full transition-colors text-[var(--metric-red)]/80 hover:bg-[var(--metric-red)]/10 hover:text-[var(--metric-red)] ${isExpanded
-              ? "justify-start gap-4 px-3 py-3 w-full"
-              : "justify-center w-12 h-12 mx-auto"
-              }`}
-            title={!isExpanded ? "Sign Out" : undefined}
+            className="flex items-center rounded-full transition-colors text-[var(--metric-red)]/80 hover:bg-[var(--metric-red)]/10 hover:text-[var(--metric-red)] justify-start gap-4 px-3 py-3 w-full"
+            title="Sign Out"
           >
             <div className="flex-shrink-0"><LogOut className="w-5 h-5" /></div>
-            <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
+            <span className="whitespace-nowrap transition-opacity duration-300 opacity-100">
               Sign Out
             </span>
           </button>
