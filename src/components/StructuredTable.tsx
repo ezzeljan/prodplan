@@ -121,7 +121,7 @@ export default function StructuredTable({
   const hasSubHeaders = row2.length > 0;
   const groupByKey = table.groupByKey;
   const groupRuns = useMemo(
-    () => (groupByKey ? getGroupRuns(table.rows, groupByKey) : null),
+    () => (groupByKey ? getGroupRuns(table.rows, groupByKey!) : null),
     [table.rows, groupByKey]
   );
 
@@ -135,7 +135,7 @@ export default function StructuredTable({
   const groupCellBg = isDark ? 'rgb(55 65 81)' : GROUP_CELL_BG;
 
   const groupByColIndex = groupByKey
-    ? table.columns.findIndex((c) => c.key === groupByKey)
+    ? table.columns.findIndex((c) => c.key === groupByKey!)
     : -1;
 
   return (
@@ -204,7 +204,7 @@ export default function StructuredTable({
               let rowIndex = 0;
               groupRuns.forEach((runLength, runIdx) => {
                 const firstRow = table.rows[rowIndex] as Record<string, unknown>;
-                const groupValue = firstRow[groupByKey];
+                const groupValue = firstRow[groupByKey!];
                 cells.push(
                   <tr key={runIdx}>
                     {table.columns.map((col, cIdx) => {
