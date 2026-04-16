@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Home, FileSpreadsheet, History, BarChart3, FolderOpen, LogOut, Sun, Moon, User } from "lucide-react";
 import { useAISpreadsheet } from "../../contexts/AISpreadsheetContext";
 import { useAuth } from "../../contexts/AuthContext";
+import { useUser } from "../../contexts/UserContext";
 import logo from "../../assets/lifewood-logo.png";
 import icon from "../../assets/icon.png";
 
@@ -20,6 +21,7 @@ const Navbar = () => {
   const [isDark, setIsDark] = useState(() => localStorage.getItem("theme") === "dark");
   const { hasNewData } = useAISpreadsheet();
   const { logout, authSession } = useAuth();
+  const { isAdmin } = useUser();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -120,31 +122,33 @@ const Navbar = () => {
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              if (location.pathname !== "/") {
-                navigate("/");
-                setTimeout(
-                  () =>
-                    window.dispatchEvent(
-                      new CustomEvent("toggle-chat-history"),
-                    ),
-                  150,
-                );
-              } else {
-                window.dispatchEvent(
-                  new CustomEvent("toggle-chat-history"),
-                );
-              }
-            }}
-            className="flex items-center rounded-full transition-colors text-white/70 hover:bg-white/10 hover:text-white justify-start gap-4 px-3 py-3 w-full"
-            title="Chat History"
-          >
-            <div className="flex-shrink-0"><History className="w-5 h-5" /></div>
-            <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
-              Chat History
-            </span>
-          </button>
+          {!isAdmin && (
+            <button
+              onClick={() => {
+                if (location.pathname !== "/") {
+                  navigate("/");
+                  setTimeout(
+                    () =>
+                      window.dispatchEvent(
+                        new CustomEvent("toggle-chat-history"),
+                      ),
+                    150,
+                  );
+                } else {
+                  window.dispatchEvent(
+                    new CustomEvent("toggle-chat-history"),
+                  );
+                }
+              }}
+              className="flex items-center rounded-full transition-colors text-white/70 hover:bg-white/10 hover:text-white justify-start gap-4 px-3 py-3 w-full"
+              title="Chat History"
+            >
+              <div className="flex-shrink-0"><History className="w-5 h-5" /></div>
+              <span className={`whitespace-nowrap transition-opacity duration-300 ${isExpanded ? "opacity-100" : "opacity-0 w-0 hidden"}`}>
+                Chat History
+              </span>
+            </button>
+          )}
 
           <button
             onClick={toggleTheme}
