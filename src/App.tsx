@@ -13,6 +13,7 @@ import OperatorProjectView from "./components/portal/OperatorProjectView";
 import AdminLogin from "./components/auth/AdminLogin";
 import TeamLeadLogin from "./components/auth/TeamLeadLogin";
 import TeamLeadLayout from "./components/TeamLeadLayout";
+import UsersPage from "./components/UsersPage";
 import KeyboardShortcuts from "./components/KeyboardShortcuts";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
@@ -129,6 +130,7 @@ useEffect(() => {
           <Route path="/projects/:id/spreadsheet" element={<SpreadsheetPage />} />
           <Route path="/dashboard" element={<AdminDashboard />} />
           <Route path="/production-plan" element={<ProductionPlanStorage />} />
+          <Route path="/users" element={<UsersPage />} />
         </Routes>
       </main>
     </div>

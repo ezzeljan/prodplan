@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Home, FileSpreadsheet, History, BarChart3, FolderOpen, LogOut, Sun, Moon } from "lucide-react";
+import { Menu, X, Home, FileSpreadsheet, History, BarChart3, FolderOpen, LogOut, Sun, Moon, User } from "lucide-react";
 import { useAISpreadsheet } from "../../contexts/AISpreadsheetContext";
 import { useAuth } from "../../contexts/AuthContext";
 import logo from "../../assets/lifewood-logo.png";
 import icon from "../../assets/icon.png";
 
 const navWithIcons = [
+  { label: "Dashboard", href: "/dashboard", icon: <Home className="w-5 h-5" /> },
   { label: "Projects", href: "/projects", icon: <FolderOpen className="w-5 h-5" /> },
-  { label: "Dashboard", href: "/dashboard", icon: <BarChart3 className="w-5 h-5" /> },
+  { label: "Users", href: "/users", icon: <User className="w-5 h-5" /> },
   { label: "Production Plan", href: "/production-plan", icon: <FileSpreadsheet className="w-5 h-5" /> },
 ];
 

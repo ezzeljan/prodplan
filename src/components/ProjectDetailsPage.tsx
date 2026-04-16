@@ -67,7 +67,15 @@ export default function ProjectDetailsPage() {
 
     const isTeamLeadPath = location.pathname.startsWith('/teamlead-dashboard');
     const backPath = isTeamLeadPath ? '/teamlead-dashboard/projects' : '/projects';
-    const spreadsheetPath = isTeamLeadPath ? `/teamlead-dashboard/projects/${id}/spreadsheet` : `/projects/${id}/spreadsheet`;
+    
+    // Determine if spreadsheet exists
+    const hasSpreadsheet = project?.spreadsheetData && 
+        Array.isArray(project.spreadsheetData.rows) && 
+        project.spreadsheetData.rows.length > 0;
+
+    const spreadsheetPath = isTeamLeadPath 
+        ? (hasSpreadsheet ? `/teamlead-dashboard/projects/${id}/spreadsheet` : `/teamlead-dashboard/plan?projectId=${id}`)
+        : (hasSpreadsheet ? `/projects/${id}/spreadsheet` : `/?projectId=${id}`);
 
     if (loading) {
         return (

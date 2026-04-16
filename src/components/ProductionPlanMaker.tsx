@@ -320,7 +320,9 @@ export default function ProductionPlanMaker() {
   );
   const [rejectedMsgIds, setRejectedMsgIds] = useState<Set<string>>(new Set());
   const [lastSavedProjectId, setLastSavedProjectId] = useState<string>("");
-  const [isProjectStarted, setIsProjectStarted] = useState(false);
+  const [isProjectStarted, setIsProjectStarted] = useState(() => {
+    return !!new URLSearchParams(window.location.search).get("projectId");
+  });
   const [currentProjectName, setCurrentProjectName] = useState("");
 
   const { setLastCreated } = useAISpreadsheet();
@@ -924,7 +926,10 @@ export default function ProductionPlanMaker() {
       {/* ── Main Chat ── */}
       <div className="flex-1 flex flex-col min-w-0 relative">
         {!isProjectStarted ? (
-          <Navigate to="/projects" replace />
+          <ProjectSetupView 
+            onComplete={handleStartProject} 
+            onReset={handleNuclearReset} 
+          />
         ) : (
           <>
             {/* Background blobs */}
@@ -1032,7 +1037,12 @@ export default function ProductionPlanMaker() {
                   onConfirm={(id) => handleConfirmStructure(id)}
                   onReject={(id) => handleModifyStructure(id)}
                   onDownload={(name, buf) => handleDownload(name, buf)}
-                  onViewProject={(id) => navigate(`/teamlead-dashboard/projects/${id}`)}
+                  onViewProject={(id) => {
+                    const path = window.location.pathname.startsWith('/teamlead-dashboard') 
+                      ? `/teamlead-dashboard/projects/${id}/spreadsheet` 
+                      : `/projects/${id}/spreadsheet`;
+                    navigate(path);
+                  }}
                   lastSavedProjectId={lastSavedProjectId}
                 />
               ))}
