@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { storage } from '../utils/storageProvider';
 import type { UnifiedProject } from '../utils/projectStorage';
 import { useAISpreadsheet } from '../contexts/AISpreadsheetContext';
+import { useUser } from '../contexts/UserContext';
 import ProjectSetupView from './chat/ProjectSetupView';
 
 type FilterStatus = 'all' | 'active' | 'completed' | 'archived';
@@ -30,6 +31,7 @@ const ITEMS_PER_PAGE = 12;
 export default function ProjectsPage() {
     const navigate = useNavigate();
     const { markSeen } = useAISpreadsheet();
+    const { isAdmin } = useUser();
     const [projects, setProjects] = useState<UnifiedProject[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -509,7 +511,12 @@ export default function ProjectsPage() {
                             <ProjectSetupView 
                                 onComplete={(name, id) => {
                                     setShowCreateModal(false);
-                                    navigate(`/?projectId=${id}`);
+                                    loadProjects();
+                                    if (isAdmin) {
+                                        navigate(`/projects`);
+                                    } else {
+                                        navigate(`/?projectId=${id}`);
+                                    }
                                 }}
                                 onReset={() => {
                                     if (window.confirm("ARE YOU SURE? This will permanently delete ALL data, sessions, and files. Proceed?")) {

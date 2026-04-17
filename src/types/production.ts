@@ -62,6 +62,7 @@ export interface ProjectData {
     overview?: string;
     expectedOutputPerOperator?: string;
     outputCadence?: string;
+    useLPBModel?: boolean;
     // total planned time for the project in minutes (optional)
     timeMinutes?: number;
 }

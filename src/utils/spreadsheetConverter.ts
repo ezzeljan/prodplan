@@ -1,5 +1,34 @@
 import { ProjectData } from '../types/production';
-import { SpreadsheetData, SpreadsheetCell, CellStyle, MergeRange, createEmptySpreadsheet } from '../types/spreadsheet';
+import { SpreadsheetData, SpreadsheetCell, CellStyle, MergeRange } from '../types/spreadsheet';
+
+/**
+ * LPB (Learning → Performing → Breaking Through) target calculation
+ * Returns the target multiplier based on progress through the project timeline:
+ * - Stage L (Learning): days 0-20% → 50% to 100% of dailyQuota
+ * - Stage P (Performing): days 20-80% → 100% of dailyQuota
+ * - Stage B (Breaking Through): days 80-100% → 100% to 130% of dailyQuota
+ */
+function getLpbTargetMultiplier(progress: number): number {
+    if (progress < 0.20) {
+        // Stage L: Linear ramp from 0.5 to 1.0
+        return 0.5 + (0.5 * (progress / 0.20));
+    } else if (progress < 0.80) {
+        // Stage P: Steady at 1.0
+        return 1.0;
+    } else {
+        // Stage B: Linear rise from 1.0 to 1.3
+        return 1.0 + (0.3 * ((progress - 0.80) / 0.20));
+    }
+}
+
+/**
+ * Parse the expectedOutputPerOperator string to a number
+ */
+function parseOutputPerOperator(value: string | undefined): number | null {
+    if (!value) return null;
+    const num = parseFloat(value.replace(/[^0-9.]/g, ''));
+    return isNaN(num) ? null : num;
+}
 
 /**
  * Convert AI-generated ProjectData (from generate_production_plan tool) into
@@ -155,19 +184,46 @@ export function projectDataToSpreadsheet(project: ProjectData): SpreadsheetData 
             }
         }
     } else {
-        // No targetData — create skeleton rows from dates & resources
+        // No targetData — generate targets using LPB model
         const start = new Date(project.startDate);
         const end = new Date(project.endDate);
         
+        // Calculate total days and daily quota
+        const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const numResources = project.resources.length || 1;
+        
+        // Parse expectedOutputPerOperator or calculate from goal
+        const customOutput = parseOutputPerOperator(project.expectedOutputPerOperator);
+        const dailyQuota = customOutput !== null 
+            ? customOutput 
+            : (project.goal || 0) / totalDays / numResources;
+        
+        let dayIndex = 0;
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             const dateStr = d.toISOString().split('T')[0];
+            const progress = dayIndex / totalDays;
+            const target = dailyQuota * getLpbTargetMultiplier(progress);
+            
             for (const resource of project.resources) {
                 const row: SpreadsheetCell[] = Array(numCols).fill(null).map(() => ({ value: '' }));
                 row[0] = { value: dateStr === prevDate ? '' : dateStr };
                 row[1] = { value: resource };
+                
+                // Fill target column
+                dailyCols.forEach((col, colIdx) => {
+                    if (col.key === 'target') {
+                        row[colIdx + 2] = { value: Math.round(target * 100) / 100, style: { textAlign: 'right' } };
+                    } else if (col.key === 'actual') {
+                        row[colIdx + 2] = { value: '', style: { textAlign: 'right' } };
+                    } else {
+                        row[colIdx + 2] = { value: '', style: { textAlign: 'right' } };
+                    }
+                });
+                
                 dataRows.push(row);
                 prevDate = dateStr;
             }
+            dayIndex++;
         }
     }
 

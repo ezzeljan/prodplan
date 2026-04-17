@@ -80,31 +80,53 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
     });
 
     // Fallback dailyWeights for calculating target if targetData isn't provided
+    // Uses LPB (Learning → Performing → Breaking Through) model:
+    // - Stage L (days 0-20%): 50% to 100% of daily quota
+    // - Stage P (days 20-80%): 100% of daily quota
+    // - Stage B (days 80-100%): 100% to 130% of daily quota
     const dailyWeights: Record<string, number> = {};
     if (!projectData.targetData || Object.keys(projectData.targetData).length === 0) {
+        const numResources = projectData.resources.length || 1;
+        const customOutput = projectData.expectedOutputPerOperator 
+            ? parseFloat(projectData.expectedOutputPerOperator.replace(/[^0-9.]/g, ''))
+            : null;
+        const dailyQuota = customOutput && !isNaN(customOutput)
+            ? customOutput
+            : projectData.goal / totalDays / numResources;
+
         let cumulativeWeight = 0;
         uniqueDates.forEach((date, i) => {
-            const progress = i / (totalDays - 1 || 1);
+            const progress = i / totalDays;
             let weight = 0;
 
-            if (progress < 0.25) {
-                const pAdjusted = progress / 0.25;
-                weight = 0.4 + (0.3 * pAdjusted);
-            } else if (progress < 0.75) {
-                const pAdjusted = (progress - 0.25) / 0.5;
-                weight = 0.7 + (0.4 * pAdjusted);
+            if (progress < 0.20) {
+                // Stage L: Linear ramp from 0.5 to 1.0
+                weight = 0.5 + (0.5 * (progress / 0.20));
+            } else if (progress < 0.80) {
+                // Stage P: Steady at 1.0
+                weight = 1.0;
             } else {
-                const pAdjusted = (progress - 0.75) / 0.25;
-                weight = 1.1 + (0.2 * pAdjusted);
+                // Stage B: Linear rise from 1.0 to 1.3
+                weight = 1.0 + (0.3 * ((progress - 0.80) / 0.20));
             }
 
+            // weight represents the multiplier to dailyQuota
             dailyWeights[date] = weight;
             cumulativeWeight += weight * (itemsByDay[date] || 0);
         });
 
         // Store cumulativeWeight directly for fallback
         (dailyWeights as any)._cumulative = cumulativeWeight;
+        // Also store dailyQuota for calculation
+        (dailyWeights as any)._dailyQuota = dailyQuota;
     }
+
+    // Helper to get LPB weight from progress
+    const getLpbWeight = (progress: number): number => {
+        if (progress < 0.20) return 0.5 + (0.5 * (progress / 0.20));
+        if (progress < 0.80) return 1.0;
+        return 1.0 + (0.3 * ((progress - 0.80) / 0.20));
+    };
 
     // ──── AI DATA VERIFIER ────
     // ──── AI DATA VERIFIER ────
@@ -131,10 +153,10 @@ export const generateExcelFile = async (projectData: ProjectData): Promise<Excel
                 target = dayTargets[matchedName];
             }
         } else if (!projectData.targetData || Object.keys(projectData.targetData).length === 0) {
-            // 2. Fallback to calculating target by timeline weight
+            // 2. Fallback to calculating target using LPB model
             const weight = dailyWeights[item.date.toISOString()] || 1;
-            const cumWeight = (dailyWeights as any)._cumulative || 1;
-            target = (weight / cumWeight) * projectData.goal;
+            const dailyQuota = (dailyWeights as any)._dailyQuota || (projectData.goal / totalDays / (projectData.resources.length || 1));
+            target = weight * dailyQuota;
         }
 
         return {
