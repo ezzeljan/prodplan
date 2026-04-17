@@ -29,6 +29,7 @@ export default function TeamLeadDashboard() {
     const [myProjects, setMyProjects] = useState<any[]>([]);
     const [addMode, setAddMode] = useState<'register' | 'existing'>('register');
     const [availableOperators, setAvailableOperators] = useState<Operator[]>([]);
+    const [visiblePins, setVisiblePins] = useState<Record<string, boolean>>({});
 
     const loadOperators = useCallback(async () => {
         if (!authSession) return;
@@ -160,6 +161,10 @@ export default function TeamLeadDashboard() {
         }
     }, [addMode, addForm.projectId]);
 
+    const togglePinVisibility = (userId: string) => {
+        setVisiblePins(prev => ({ ...prev, [userId]: !prev[userId] }));
+    };
+
     const setModalClosed = () => {
         setShowAddModal(false);
         setCreatedPin(null);
@@ -241,9 +246,18 @@ export default function TeamLeadDashboard() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-[var(--text-primary)] truncate">{op.name}</p>
-                                        <p className="text-xs font-mono font-bold tracking-widest text-[var(--metric-green)]">
-                                            PIN: {op.pinHash ? '******' : '------'}
-                                        </p>
+                                        <button 
+                                            onClick={() => togglePinVisibility(op.id)}
+                                            className="flex items-center gap-2 group/pin cursor-pointer"
+                                            title={visiblePins[op.id] ? "Hide PIN" : "Show PIN"}
+                                        >
+                                            <p className="text-xs font-mono font-bold tracking-widest text-[var(--metric-green)]">
+                                                PIN: {visiblePins[op.id] ? op.pin : '••••••'}
+                                            </p>
+                                            <div className={`w-4 h-4 rounded-md flex items-center justify-center transition-colors ${visiblePins[op.id] ? 'bg-[var(--metric-green)]/20' : 'bg-white/5 group-hover/pin:bg-white/10'}`}>
+                                                <KeyRound className={`w-2.5 h-2.5 ${visiblePins[op.id] ? 'text-[var(--metric-green)]' : 'text-white/20'}`} />
+                                            </div>
+                                        </button>
                                     </div>
                                     <p className="text-[10px] text-[var(--text-muted)] hidden sm:block truncate">
                                         {op.createdAt ? new Date(op.createdAt).toLocaleDateString() : 'No Date'}
@@ -253,13 +267,19 @@ export default function TeamLeadDashboard() {
                                             <button
                                                 onClick={async () => {
                                                     if (!authSession) return;
+                                                    setAddSubmitting(true);
                                                     try {
                                                         await storage.deleteUser(op.id, authSession.email, authSession.pin);
                                                         await loadOperators();
-                                                    } catch (err) {
+                                                        setDeleteConfirmId(null);
+                                                    } catch (err: any) {
                                                         console.error('Failed to delete operator', err);
+                                                        setAddError(err.message || 'Failed to delete operator.');
+                                                        alert('Delete failed: ' + (err.message || 'Unknown error'));
+                                                        setDeleteConfirmId(null);
+                                                    } finally {
+                                                        setAddSubmitting(false);
                                                     }
-                                                    setDeleteConfirmId(null);
                                                 }}
                                                 className="p-1.5 rounded-lg bg-[var(--metric-red)]/15 hover:bg-[var(--metric-red)]/25 transition-colors cursor-pointer"
                                                 title="Confirm delete"

@@ -22,6 +22,8 @@ import type { UnifiedProject } from '../utils/projectStorage';
 import { useAISpreadsheet } from '../contexts/AISpreadsheetContext';
 import { useUser } from '../contexts/UserContext';
 import ProjectSetupView from './chat/ProjectSetupView';
+import { useAuth } from '../contexts/AuthContext';
+import { Role } from '../types/auth';
 
 type FilterStatus = 'all' | 'active' | 'completed' | 'archived';
 type SortBy = 'newest' | 'oldest' | 'name';
@@ -30,6 +32,7 @@ const ITEMS_PER_PAGE = 12;
 
 export default function ProjectsPage() {
     const navigate = useNavigate();
+    const { authSession } = useAuth();
     const { markSeen } = useAISpreadsheet();
     const { isAdmin } = useUser();
     const [projects, setProjects] = useState<UnifiedProject[]>([]);
@@ -64,7 +67,7 @@ export default function ProjectsPage() {
 
     const handleDelete = async (id: string) => {
         try {
-            await storage.deleteProject(id);
+            await storage.deleteProject(id, authSession?.email, authSession?.pin);
             setProjects(prev => prev.filter(p => p.id !== id));
             setDeleteConfirm(null);
             setMenuOpen(null);
@@ -75,7 +78,7 @@ export default function ProjectsPage() {
 
     const handleArchive = async (id: string) => {
         try {
-            await storage.updateProject(id, { status: 'archived' });
+            await storage.updateProject(id, { status: 'archived' }, authSession?.email, authSession?.pin);
             setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'archived' } : p));
             setMenuOpen(null);
         } catch (err) {
@@ -85,7 +88,7 @@ export default function ProjectsPage() {
 
     const handleUnarchive = async (id: string) => {
         try {
-            await storage.updateProject(id, { status: 'active' });
+            await storage.updateProject(id, { status: 'active' }, authSession?.email, authSession?.pin);
             setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'active' } : p));
             setMenuOpen(null);
         } catch (err) {
@@ -98,6 +101,9 @@ export default function ProjectsPage() {
 
         if (filter !== 'all') {
             list = list.filter(p => p && p.status === filter);
+        } else {
+            // By default, hide archived and deleted projects from 'all'
+            list = list.filter(p => p && p.status !== 'archived' && p.status !== 'deleted');
         }
 
         if (search.trim()) {
@@ -216,8 +222,8 @@ export default function ProjectsPage() {
                             key={f}
                             onClick={() => setFilter(f)}
                             className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${filter === f
-                                    ? 'bg-[#FFB347] text-[#133020]'
-                                    : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
+                                ? 'bg-[#FFB347] text-[#133020]'
+                                : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
                                 }`}
                             style={filter === f ? {} : { borderColor: 'rgba(0,0,0,0.2)' }}
                         >
@@ -426,8 +432,8 @@ export default function ProjectsPage() {
                                         key={p}
                                         onClick={() => setPage(p)}
                                         className={`w-9 h-9 text-sm rounded-xl transition-all ${page === p
-                                                ? 'bg-[var(--accent-primary)] text-white shadow-md'
-                                                : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
+                                            ? 'bg-[var(--accent-primary)] text-white shadow-md'
+                                            : 'glass-card text-[var(--text-secondary)] hover:bg-white/10'
                                             }`}
                                     >
                                         {p}
@@ -508,7 +514,7 @@ export default function ProjectsPage() {
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
                             className="relative w-full max-w-2xl bg-transparent z-[1100]"
                         >
-                            <ProjectSetupView 
+                            <ProjectSetupView
                                 onComplete={(name, id) => {
                                     setShowCreateModal(false);
                                     loadProjects();

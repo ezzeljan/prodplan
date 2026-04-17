@@ -42,6 +42,9 @@ public class User {
     @Column(unique = true, nullable = false)
     private String pin;
 
+    @Column(nullable = false)
+    private String status = "active";
+
     // Default constructor for JPA
     public User() {}
 
@@ -66,4 +69,7 @@ public class User {
     
     public String getPin() { return pin; }
     public void setPin(String pin) { this.pin = pin; }
+
+    public String getStatus() { return status == null ? "active" : status; }
+    public void setStatus(String status) { this.status = status; }
 }

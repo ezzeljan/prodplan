@@ -430,7 +430,7 @@ export default function EditableSpreadsheet({
             // Remove any existing merges that overlap
             const newMerges = prev.merges.filter(m =>
                 !(m.startRow <= endRow && m.endRow >= startRow &&
-                  m.startCol <= endCol && m.endCol >= startCol)
+                    m.startCol <= endCol && m.endCol >= startCol)
             );
             newMerges.push({ startRow, startCol, endRow, endCol });
             return { ...prev, merges: newMerges };
@@ -554,152 +554,152 @@ export default function EditableSpreadsheet({
 
                 {/* ── Toolbar (hidden in readOnly) ── */}
                 {!readOnly && (
-                <div className="px-6 py-3 relative z-30">
-                    <div className="glass-card px-4 py-2 flex items-center gap-1 flex-wrap overflow-visible">
+                    <div className="px-6 py-3 relative z-30">
+                        <div className="glass-card px-4 py-2 flex items-center gap-1 flex-wrap overflow-visible">
 
-                        {/* Undo */}
-                        <ToolBtn onClick={undo} title="Undo (Ctrl+Z)" active={false}>
-                            <Undo2 className="w-4 h-4" />
-                        </ToolBtn>
+                            {/* Undo */}
+                            <ToolBtn onClick={undo} title="Undo (Ctrl+Z)" active={false}>
+                                <Undo2 className="w-4 h-4" />
+                            </ToolBtn>
 
-                        <div className="w-px h-6 bg-white/10 mx-1" />
+                            <div className="w-px h-6 bg-white/10 mx-1" />
 
-                        {/* Bold / Italic */}
-                        <ToolBtn onClick={toggleBold} title="Bold" active={currentCellStyle.bold}>
-                            <Bold className="w-4 h-4" />
-                        </ToolBtn>
-                        <ToolBtn onClick={toggleItalic} title="Italic" active={currentCellStyle.italic}>
-                            <Italic className="w-4 h-4" />
-                        </ToolBtn>
+                            {/* Bold / Italic */}
+                            <ToolBtn onClick={toggleBold} title="Bold" active={currentCellStyle.bold}>
+                                <Bold className="w-4 h-4" />
+                            </ToolBtn>
+                            <ToolBtn onClick={toggleItalic} title="Italic" active={currentCellStyle.italic}>
+                                <Italic className="w-4 h-4" />
+                            </ToolBtn>
 
-                        <div className="w-px h-6 bg-white/10 mx-1" />
+                            <div className="w-px h-6 bg-white/10 mx-1" />
 
-                        {/* Alignment */}
-                        <ToolBtn onClick={() => setAlign('left')} title="Align Left" active={currentCellStyle.textAlign === 'left'}>
-                            <AlignLeft className="w-4 h-4" />
-                        </ToolBtn>
-                        <ToolBtn onClick={() => setAlign('center')} title="Align Center" active={currentCellStyle.textAlign === 'center'}>
-                            <AlignCenter className="w-4 h-4" />
-                        </ToolBtn>
-                        <ToolBtn onClick={() => setAlign('right')} title="Align Right" active={currentCellStyle.textAlign === 'right'}>
-                            <AlignRight className="w-4 h-4" />
-                        </ToolBtn>
+                            {/* Alignment */}
+                            <ToolBtn onClick={() => setAlign('left')} title="Align Left" active={currentCellStyle.textAlign === 'left'}>
+                                <AlignLeft className="w-4 h-4" />
+                            </ToolBtn>
+                            <ToolBtn onClick={() => setAlign('center')} title="Align Center" active={currentCellStyle.textAlign === 'center'}>
+                                <AlignCenter className="w-4 h-4" />
+                            </ToolBtn>
+                            <ToolBtn onClick={() => setAlign('right')} title="Align Right" active={currentCellStyle.textAlign === 'right'}>
+                                <AlignRight className="w-4 h-4" />
+                            </ToolBtn>
 
-                        <div className="w-px h-6 bg-white/10 mx-1" />
+                            <div className="w-px h-6 bg-white/10 mx-1" />
 
-                        {/* Font Size */}
-                        <div className="relative">
-                            <button
-                                onClick={() => { setShowFontSize(!showFontSize); setShowColorPicker(false); }}
-                                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-white/10 transition-colors"
-                                title="Font Size"
-                            >
-                                <Type className="w-4 h-4" />
-                                <span className="text-xs min-w-[24px]">{currentCellStyle.fontSize || 13}</span>
-                                <ChevronDown className="w-3 h-3" />
-                            </button>
-                            <AnimatePresence>
-                                {showFontSize && (
-                                    <FontSizePicker
-                                        currentSize={currentCellStyle.fontSize || 13}
-                                        onSelect={(size) => setCellFontSize(size)}
-                                        onClose={() => setShowFontSize(false)}
+                            {/* Font Size */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => { setShowFontSize(!showFontSize); setShowColorPicker(false); }}
+                                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-white/10 transition-colors"
+                                    title="Font Size"
+                                >
+                                    <Type className="w-4 h-4" />
+                                    <span className="text-xs min-w-[24px]">{currentCellStyle.fontSize || 13}</span>
+                                    <ChevronDown className="w-3 h-3" />
+                                </button>
+                                <AnimatePresence>
+                                    {showFontSize && (
+                                        <FontSizePicker
+                                            currentSize={currentCellStyle.fontSize || 13}
+                                            onSelect={(size) => setCellFontSize(size)}
+                                            onClose={() => setShowFontSize(false)}
+                                        />
+                                    )}
+                                </AnimatePresence>
+                            </div>
+
+                            <div className="w-px h-6 bg-white/10 mx-1" />
+
+                            {/* Cell Color */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => { setShowColorPicker(!showColorPicker); setShowFontSize(false); }}
+                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-white/10 transition-colors"
+                                    title="Cell Color"
+                                >
+                                    <Paintbrush className="w-4 h-4" />
+                                    <div
+                                        className="w-4 h-3 rounded-sm border border-white/20"
+                                        style={{ backgroundColor: currentCellStyle.bgColor || 'transparent' }}
                                     />
-                                )}
-                            </AnimatePresence>
-                        </div>
+                                </button>
+                                <AnimatePresence>
+                                    {showColorPicker && (
+                                        <ColorPicker
+                                            currentColor={currentCellStyle.bgColor}
+                                            onSelect={setCellColor}
+                                            onClose={() => setShowColorPicker(false)}
+                                            title="Cell Background"
+                                        />
+                                    )}
+                                </AnimatePresence>
+                            </div>
 
-                        <div className="w-px h-6 bg-white/10 mx-1" />
-
-                        {/* Cell Color */}
-                        <div className="relative">
-                            <button
-                                onClick={() => { setShowColorPicker(!showColorPicker); setShowFontSize(false); }}
-                                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-white/10 transition-colors"
-                                title="Cell Color"
-                            >
-                                <Paintbrush className="w-4 h-4" />
-                                <div
-                                    className="w-4 h-3 rounded-sm border border-white/20"
-                                    style={{ backgroundColor: currentCellStyle.bgColor || 'transparent' }}
-                                />
-                            </button>
-                            <AnimatePresence>
-                                {showColorPicker && (
-                                    <ColorPicker
-                                        currentColor={currentCellStyle.bgColor}
-                                        onSelect={setCellColor}
-                                        onClose={() => setShowColorPicker(false)}
-                                        title="Cell Background"
+                            {/* Font Color */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => { setShowTextColorPicker(!showTextColorPicker); setShowFontSize(false); setShowColorPicker(false); }}
+                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-white/10 transition-colors"
+                                    title="Font Color"
+                                >
+                                    <Baseline className="w-4 h-4" />
+                                    <div
+                                        className="w-4 h-3 rounded-sm border border-white/20"
+                                        style={{ backgroundColor: currentCellStyle.color || 'var(--text-primary)' }}
                                     />
-                                )}
-                            </AnimatePresence>
-                        </div>
+                                </button>
+                                <AnimatePresence>
+                                    {showTextColorPicker && (
+                                        <ColorPicker
+                                            currentColor={currentCellStyle.color}
+                                            onSelect={setTextColor}
+                                            onClose={() => setShowTextColorPicker(false)}
+                                            title="Font Color"
+                                        />
+                                    )}
+                                </AnimatePresence>
+                            </div>
 
-                        {/* Font Color */}
-                        <div className="relative">
-                            <button
-                                onClick={() => { setShowTextColorPicker(!showTextColorPicker); setShowFontSize(false); setShowColorPicker(false); }}
-                                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-white/10 transition-colors"
-                                title="Font Color"
+                            <div className="w-px h-6 bg-white/10 mx-1" />
+
+                            {/* Merge */}
+                            <ToolBtn
+                                onClick={selectionHasMerge ? unmergeSelection : mergeSelection}
+                                title={selectionHasMerge ? 'Unmerge Cells' : 'Merge Cells'}
+                                active={selectionHasMerge}
                             >
-                                <Baseline className="w-4 h-4" />
-                                <div
-                                    className="w-4 h-3 rounded-sm border border-white/20"
-                                    style={{ backgroundColor: currentCellStyle.color || 'var(--text-primary)' }}
-                                />
+                                <Merge className="w-4 h-4" />
+                            </ToolBtn>
+
+                            <div className="w-px h-6 bg-white/10 mx-1" />
+
+                            {/* Add/Remove Rows & Columns */}
+                            <div className="flex items-center gap-0.5">
+                                <ToolBtn onClick={addRow} title="Add Row"><Plus className="w-3.5 h-3.5" /></ToolBtn>
+                                <span className="text-[10px] text-[var(--text-muted)]">Row</span>
+                                <ToolBtn onClick={removeLastRow} title="Remove Last Row"><Minus className="w-3.5 h-3.5" /></ToolBtn>
+                            </div>
+
+                            <div className="flex items-center gap-0.5 ml-1">
+                                <ToolBtn onClick={addColumn} title="Add Column"><Plus className="w-3.5 h-3.5" /></ToolBtn>
+                                <span className="text-[10px] text-[var(--text-muted)]">Col</span>
+                                <ToolBtn onClick={removeLastColumn} title="Remove Last Column"><Minus className="w-3.5 h-3.5" /></ToolBtn>
+                            </div>
+
+                            <div className="w-px h-6 bg-white/10 mx-1" />
+
+                            {/* Export */}
+                            <button
+                                onClick={() => exportToExcel(data, title || data.title)}
+                                title="Export to Excel"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-white/10 hover:text-[var(--text-primary)] transition-colors"
+                            >
+                                <Download className="w-4 h-4" />
+                                <span className="text-xs">Export</span>
                             </button>
-                            <AnimatePresence>
-                                {showTextColorPicker && (
-                                    <ColorPicker
-                                        currentColor={currentCellStyle.color}
-                                        onSelect={setTextColor}
-                                        onClose={() => setShowTextColorPicker(false)}
-                                        title="Font Color"
-                                    />
-                                )}
-                            </AnimatePresence>
                         </div>
-
-                        <div className="w-px h-6 bg-white/10 mx-1" />
-
-                        {/* Merge */}
-                        <ToolBtn
-                            onClick={selectionHasMerge ? unmergeSelection : mergeSelection}
-                            title={selectionHasMerge ? 'Unmerge Cells' : 'Merge Cells'}
-                            active={selectionHasMerge}
-                        >
-                            <Merge className="w-4 h-4" />
-                        </ToolBtn>
-
-                        <div className="w-px h-6 bg-white/10 mx-1" />
-
-                        {/* Add/Remove Rows & Columns */}
-                        <div className="flex items-center gap-0.5">
-                            <ToolBtn onClick={addRow} title="Add Row"><Plus className="w-3.5 h-3.5" /></ToolBtn>
-                            <span className="text-[10px] text-[var(--text-muted)]">Row</span>
-                            <ToolBtn onClick={removeLastRow} title="Remove Last Row"><Minus className="w-3.5 h-3.5" /></ToolBtn>
-                        </div>
-
-                        <div className="flex items-center gap-0.5 ml-1">
-                            <ToolBtn onClick={addColumn} title="Add Column"><Plus className="w-3.5 h-3.5" /></ToolBtn>
-                            <span className="text-[10px] text-[var(--text-muted)]">Col</span>
-                            <ToolBtn onClick={removeLastColumn} title="Remove Last Column"><Minus className="w-3.5 h-3.5" /></ToolBtn>
-                        </div>
-
-                        <div className="w-px h-6 bg-white/10 mx-1" />
-
-                        {/* Export */}
-                        <button
-                            onClick={() => exportToExcel(data, title || data.title)}
-                            title="Export to Excel"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-[var(--text-secondary)] hover:bg-white/10 hover:text-[var(--text-primary)] transition-colors"
-                        >
-                            <Download className="w-4 h-4" />
-                            <span className="text-xs">Export</span>
-                        </button>
                     </div>
-                </div>
                 )}
 
                 {/* ── Export button for read-only mode ── */}

@@ -12,6 +12,7 @@ import {
 import OpenAI from "openai";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { motion, AnimatePresence } from "motion/react";
 import { savePlan } from "../utils/planStorage";
 
 import { Message, ProjectData, ActualDataItem, FileAttachment } from "../types/production";
@@ -44,6 +45,7 @@ import { projectDataToSpreadsheet } from "../utils/spreadsheetConverter";
 import { useNavigate } from "react-router-dom";
 import { storage } from "../utils/storageProvider";
 import type { UnifiedProject } from "../utils/projectStorage";
+import { Role } from "../types/auth";
 
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",

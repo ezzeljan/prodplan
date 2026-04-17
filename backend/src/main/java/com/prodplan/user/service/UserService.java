@@ -4,6 +4,7 @@ import com.prodplan.user.model.Role;
 import com.prodplan.user.model.User;
 import com.prodplan.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.util.Optional;
@@ -22,8 +23,8 @@ public class UserService {
         // Email is no longer required to be unique as they share company format
         String pin = (manualPin != null && !manualPin.isBlank()) ? manualPin : generateUniquePin();
         
-        // Ensure the chosen PIN isn't already taken
-        if (manualPin != null && !manualPin.isBlank() && userRepository.findByPin(pin).isPresent()) {
+        // Ensure the chosen PIN isn't already taken by an active user
+        if (manualPin != null && !manualPin.isBlank() && userRepository.findByPinAndStatusNot(pin, "deleted").isPresent()) {
              throw new IllegalArgumentException("Target PIN is already assigned to another user.");
         }
 
@@ -38,39 +39,45 @@ public class UserService {
     public Optional<User> authenticate(String email, String pin) {
         if (email == null || pin == null) return Optional.empty();
         
-        String trimmedEmail = email.trim();
+        String trimmedEmail = email != null ? email.trim() : null;
         String trimmedPin = pin.trim();
         
-        Optional<User> userOpt = userRepository.findByPin(trimmedPin);
+        // If email is provided, try to find a privileged user first
+        if (trimmedEmail != null && !trimmedEmail.isBlank()) {
+            Optional<User> privilegedOpt = userRepository.findByEmailAndPinAndStatusNot(trimmedEmail, trimmedPin, "deleted");
+            if (privilegedOpt.isPresent()) return privilegedOpt;
+        }
+
+        // Fallback or Operator login (PIN only)
+        Optional<User> userOpt = userRepository.findByPinAndStatusNot(trimmedPin, "deleted");
         if (userOpt.isPresent()) {
             User user = userOpt.get();
-            // Admin and Team Lead MUST match specialized email + password (PIN)
+            // If they are Admin/Lead, they MUST have checked email already
             if (user.getRole() == Role.ADMIN || user.getRole() == Role.TEAM_LEAD) {
-                if (user.getEmail().equalsIgnoreCase(trimmedEmail)) {
+                if (trimmedEmail != null && user.getEmail().equalsIgnoreCase(trimmedEmail)) {
                     return userOpt;
-                } else {
-                    return Optional.empty();
                 }
+                return Optional.empty();
             }
-            // Operators are PIN-centric
             return userOpt;
         }
         return Optional.empty();
     }
 
     public java.util.List<User> getAllUsers() {
-        return userRepository.findAll();
+        return userRepository.findByStatusNot("deleted");
     }
 
     public Optional<User> getUserById(Long id) {
         return userRepository.findById(id);
     }
 
+    @Transactional
     public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
             throw new IllegalArgumentException("User not found");
         }
-        userRepository.deleteById(id);
+        userRepository.updateUserStatus(id, "deleted");
     }
 
     public User updateUser(Long id, String name, String email, Role role, String pin) {
@@ -78,7 +85,7 @@ public class UserService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         if (pin != null && !pin.isBlank() && !pin.equals(user.getPin())) {
-            if (userRepository.findByPin(pin).isPresent()) {
+            if (userRepository.findByPinAndStatusNot(pin, "deleted").isPresent()) {
                 throw new IllegalArgumentException("Target PIN is already assigned to another user.");
             }
             user.setPin(pin);
@@ -101,7 +108,7 @@ public class UserService {
             // Generated 6-digit PIN as requested
             long num = 100000L + (long)(secureRandom.nextDouble() * 900000L);
             pin = String.valueOf(num);
-        } while (userRepository.findByPin(pin).isPresent());
+        } while (userRepository.findByPinAndStatusNot(pin, "deleted").isPresent());
         return pin;
     }
 }
