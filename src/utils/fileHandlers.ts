@@ -11,14 +11,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLi
 
 const generateMetadata = (data: any[], fileName: string): string => {
     if (!data || data.length === 0) return `File ${fileName} is empty.`;
-    
+
     // Get all unique headers from all rows (in case of inconsistent CSV)
     const headers = Array.from(new Set(data.flatMap(Object.keys)));
-    
+
     // Limit to 1000 rows for performance/context safety
     const slicedData = data.slice(0, 1000);
     const rowCount = data.length;
-    
+
     const csvRows = slicedData.map(row => {
         return headers.map(header => {
             const val = row[header];
@@ -26,9 +26,9 @@ const generateMetadata = (data: any[], fileName: string): string => {
             return val === null || val === undefined ? '' : String(val).replace(/[\n\r,]/g, ' ');
         }).join(',');
     });
-    
+
     const csvString = [headers.join(','), ...csvRows].join('\n');
-    
+
     return `\n\n**File Content (${fileName}):**\n\`\`\`csv\n${csvString}\n\`\`\`\n${rowCount > 1000 ? `\n(Showing first 1000 of ${rowCount} rows)` : ''}`;
 };
 
@@ -130,10 +130,10 @@ export const parsePPTX = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
     const zip = await JSZip.loadAsync(arrayBuffer);
     let fullText = '';
-    
+
     // Iterate through slide XML files
     const slideFiles = Object.keys(zip.files).filter(fileName => fileName.match(/ppt\/slides\/slide\d+\.xml/));
-    
+
     // Sort slides numerically
     slideFiles.sort((a, b) => {
         const numA = parseInt(a.match(/slide(\d+)\.xml/)![1]);
@@ -172,7 +172,7 @@ export const processImage = (file: File): Promise<string> => {
 export const handleFileProcessing = async (file: File): Promise<Partial<FileAttachment>> => {
     const fileType = file.type;
     const fileName = file.name.toLowerCase();
-    
+
     const isCSV = fileType === 'text/csv' || fileName.endsWith('.csv');
     const isExcel = fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
     const isPDF = fileType === 'application/pdf' || fileName.endsWith('.pdf');

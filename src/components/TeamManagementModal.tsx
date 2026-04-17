@@ -30,10 +30,10 @@ interface TeamManagementModalProps {
     mode?: 'leads' | 'operators';
 }
 
-export default function TeamManagementModal({ 
-    projectId, 
-    projectTitle, 
-    isOpen, 
+export default function TeamManagementModal({
+    projectId,
+    projectTitle,
+    isOpen,
     onClose,
     mode = 'operators'
 }: TeamManagementModalProps) {
@@ -49,6 +49,7 @@ export default function TeamManagementModal({
     const [copiedPin, setCopiedPin] = useState<string | null>(null);
     const [addMode, setAddMode] = useState<'assigned' | 'existing'>('assigned');
     const [availableOperators, setAvailableOperators] = useState<User[]>([]);
+    const [visiblePins, setVisiblePins] = useState<Record<string, boolean>>({});
 
     // Form state for creating NEW lead
     const [formData, setFormData] = useState({
@@ -63,7 +64,7 @@ export default function TeamManagementModal({
             if (isAdmin && mode === 'operators') {
                 setAddMode('assigned');
             }
-            
+
             if (mode === 'leads') {
                 loadTeamLeads();
             } else {
@@ -91,7 +92,7 @@ export default function TeamManagementModal({
         try {
             const allUsers = await storage.getAllUsers();
             const leads = allUsers.filter(u => u.role === Role.TEAM_LEAD);
-            
+
             const projectData = await storage.getProject(projectId);
             if (projectData && projectData.projectManager) {
                 setAssignedLead(projectData.projectManager);
@@ -114,7 +115,7 @@ export default function TeamManagementModal({
             const projectData = await storage.getProject(projectId);
             const allUsers = await storage.getAllUsers();
             const allOperators = allUsers.filter(u => u.role === Role.OPERATOR);
-            
+
             const assignedIds = new Set((projectData?.operators || []).map(o => String(o.id)));
             const available = allOperators.filter(op => !assignedIds.has(String(op.id)));
             setAvailableOperators(available);
@@ -200,7 +201,9 @@ export default function TeamManagementModal({
             setSuccess('Operator removed from team');
             loadOperators();
         } catch (err: any) {
+            console.error('Failed to remove operator', err);
             setError(err.message || 'Failed to remove operator');
+            alert('Remove failed: ' + (err.message || 'Unknown error'));
         } finally {
             setLoading(false);
         }
@@ -234,6 +237,10 @@ export default function TeamManagementModal({
         } finally {
             setLoading(false);
         }
+    };
+
+    const togglePinVisibility = (userId: string) => {
+        setVisiblePins(prev => ({ ...prev, [userId]: !prev[userId] }));
     };
 
     const copyToClipboard = (text: string) => {
@@ -328,67 +335,67 @@ export default function TeamManagementModal({
                                         className="glass-card p-6 mb-8 border-[var(--accent-primary)]/20"
                                     >
                                         <div className="flex items-center justify-between mb-6">
-                                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                                        <Shield className="w-4 h-4 text-[var(--accent-secondary)]" />
-                                        Register New Operator
-                                    </h3>
-                                    <button type="button" onClick={() => setIsAdding(false)} className="text-xs text-white/40 hover:text-white transition-colors">Cancel</button>
-                                </div>
+                                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                                <Shield className="w-4 h-4 text-[var(--accent-secondary)]" />
+                                                Register New Operator
+                                            </h3>
+                                            <button type="button" onClick={() => setIsAdding(false)} className="text-xs text-white/40 hover:text-white transition-colors">Cancel</button>
+                                        </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2 col-span-2">
-                                        <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider ml-1">Full Name</label>
-                                        <div className="relative">
-                                            <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-                                            <input
-                                                type="text"
-                                                required
-                                                value={formData.name}
-                                                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                                className="glass-input w-full pl-10 pr-4 py-3 text-sm"
-                                                placeholder="Operator Name"
-                                            />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2 col-span-2">
+                                                <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider ml-1">Full Name</label>
+                                                <div className="relative">
+                                                    <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                                                    <input
+                                                        type="text"
+                                                        required
+                                                        value={formData.name}
+                                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                                        className="glass-input w-full pl-10 pr-4 py-3 text-sm"
+                                                        placeholder="Operator Name"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider ml-1">Email Address</label>
+                                                <div className="relative">
+                                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                                                    <input
+                                                        type="email"
+                                                        required
+                                                        value={formData.email}
+                                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                                        className="glass-input w-full pl-10 pr-4 py-3 text-sm"
+                                                        placeholder="operator@lifewood.ph"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider ml-1">Custom PIN (Optional)</label>
+                                                <div className="relative">
+                                                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                                                    <input
+                                                        type="password"
+                                                        maxLength={6}
+                                                        value={formData.pin}
+                                                        onChange={e => setFormData({ ...formData, pin: e.target.value })}
+                                                        className="glass-input w-full pl-10 pr-4 py-3 text-sm font-medium tracking-widest placeholder:tracking-normal"
+                                                        placeholder="6-digit PIN"
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider ml-1">Email Address</label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-                                            <input
-                                                type="email"
-                                                required
-                                                value={formData.email}
-                                                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                                className="glass-input w-full pl-10 pr-4 py-3 text-sm"
-                                                placeholder="operator@lifewood.ph"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-white/40 uppercase tracking-wider ml-1">Custom PIN (Optional)</label>
-                                        <div className="relative">
-                                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-                                            <input
-                                                type="password"
-                                                maxLength={6}
-                                                value={formData.pin}
-                                                onChange={e => setFormData({ ...formData, pin: e.target.value })}
-                                                className="glass-input w-full pl-10 pr-4 py-3 text-sm font-medium tracking-widest placeholder:tracking-normal"
-                                                placeholder="6-digit PIN"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full mt-6 py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-bold hover:shadow-lg hover:shadow-[var(--accent-primary)]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                                >
-                                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                    Register & Assign Operator
-                                </button>
-                            </motion.form>
+                                        <button
+                                            type="submit"
+                                            disabled={loading}
+                                            className="w-full mt-6 py-3 rounded-xl bg-[var(--accent-primary)] text-white text-sm font-bold hover:shadow-lg hover:shadow-[var(--accent-primary)]/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                            Register & Assign Operator
+                                        </button>
+                                    </motion.form>
                                 )
                             )}
                         </>
@@ -554,13 +561,25 @@ export default function TeamManagementModal({
                                                             <div className="flex items-center gap-2 mt-0.5">
                                                                 <span className="text-[10px] text-white/40">{u.email}</span>
                                                                 {u.pin && (
-                                                                    <button
-                                                                        onClick={() => copyToClipboard(u.pin!)}
-                                                                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/5 border border-white/5 hover:bg-white/10 transition-colors"
-                                                                    >
-                                                                        <span className="text-[9px] font-mono text-[var(--accent-secondary)]">PIN: {u.pin}</span>
-                                                                        {copiedPin === u.pin ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Copy className="w-2.5 h-2.5 text-white/20" />}
-                                                                    </button>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <button
+                                                                            onClick={() => togglePinVisibility(u.id)}
+                                                                            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group/pin"
+                                                                            title={visiblePins[u.id] ? "Hide PIN" : "Show PIN"}
+                                                                        >
+                                                                            <span className="text-[9px] font-mono text-[var(--accent-secondary)]">
+                                                                                PIN: {visiblePins[u.id] ? u.pin : '••••••'}
+                                                                            </span>
+                                                                            <Eye className={`w-2.5 h-2.5 transition-colors ${visiblePins[u.id] ? 'text-[var(--accent-secondary)]' : 'text-white/20 group-hover/pin:text-white/40'}`} />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => copyToClipboard(u.pin!)}
+                                                                            className="p-1 rounded-md hover:bg-white/5 transition-colors"
+                                                                            title="Copy PIN"
+                                                                        >
+                                                                            {copiedPin === u.pin ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Copy className="w-2.5 h-2.5 text-white/20" />}
+                                                                        </button>
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -587,7 +606,7 @@ export default function TeamManagementModal({
                 <div className="p-4 bg-white/5 flex items-center gap-3">
                     <AlertCircle className="w-4 h-4 text-[var(--accent-secondary)] shrink-0" />
                     <p className="text-[10px] text-white/40 leading-relaxed italic">
-                        {mode === 'leads' 
+                        {mode === 'leads'
                             ? "Tip: Each project can have only one assigned Team Lead. Assigning a new lead will automatically replace the existing one for this project."
                             : "Tip: Operators can only access projects they are assigned to. Each operator receives a unique PIN for secure login through the Personnel Portal."
                         }

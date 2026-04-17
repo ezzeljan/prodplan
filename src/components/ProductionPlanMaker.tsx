@@ -15,10 +15,13 @@ import {
   Table,
   Sun,
   Moon,
+  Shield,
+  ArrowRight as ArrowRightIcon,
 } from "lucide-react";
 import OpenAI from "openai";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { motion, AnimatePresence } from "motion/react";
 import { savePlan } from "../utils/planStorage";
 
 // Modular Imports
@@ -49,6 +52,7 @@ import { projectDataToSpreadsheet } from "../utils/spreadsheetConverter";
 import { useNavigate } from "react-router-dom";
 import { storage } from "../utils/storageProvider";
 import type { UnifiedProject } from "../utils/projectStorage";
+import { Role } from "../types/auth";
 
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -368,7 +372,7 @@ export default function ProductionPlanMaker() {
       storage.getProject(paramProjectId).then((p) => {
         if (p) {
           setCurrentProjectName(p.name);
-          setCurrentProject(p as Partial<ProjectData>);
+          setCurrentProject(p as any);
         }
       });
 
@@ -580,6 +584,12 @@ export default function ProductionPlanMaker() {
       role: "agent",
       content: `I'm now focused on **${projectName}**. \n\nPlease provide the project details (Goal, Dates, Resources, etc.) or upload an instruction file to begin building the plan.`,
     };
+
+    if (authSession?.role === Role.ADMIN) {
+      navigate('/projects');
+      return;
+    }
+
     setMessages([initialMsg]);
 
     const newSessionId = activeSessionId || Date.now().toString();
@@ -948,12 +958,63 @@ export default function ProductionPlanMaker() {
       {/* ── Main Chat ── */}
       <div className="flex-1 flex flex-col min-w-0 relative">
         {!isProjectStarted ? (
-          <ProjectSetupView 
-            onComplete={handleStartProject} 
-            onReset={handleNuclearReset} 
+          <ProjectSetupView
+            onComplete={handleStartProject}
+            onReset={handleNuclearReset}
           />
         ) : (
           <>
+            {/* ── ADMIN BLOCKER/INFO ── */}
+            {authSession?.role === Role.ADMIN && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-6">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className="glass-card max-w-md w-full p-10 text-center shadow-2xl relative z-60"
+                >
+                  <div className="w-20 h-20 rounded-3xl bg-[var(--accent-primary)]/20 flex items-center justify-center mb-8 mx-auto ring-1 ring-[var(--accent-secondary)]/30">
+                    <Shield className="w-10 h-10 text-[var(--accent-secondary)]" />
+                  </div>
+
+                  {!(currentProject as any)?.projectManager ? (
+                    <>
+                      <h3 className="text-2xl font-bold text-white mb-3">Setup Required</h3>
+                      <p className="text-[var(--text-secondary)] text-sm mb-8 leading-relaxed">
+                        A Team Lead must be assigned to <strong>{currentProjectName || "this project"}</strong> before the AI agent can be activated.
+                      </p>
+                      <button
+                        onClick={() => setIsProjectStarted(false)}
+                        className="glass-btn w-full py-4 text-base flex items-center justify-center gap-3 group"
+                      >
+                        <span>Assign Team Lead Now</span>
+                        <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-2xl font-bold text-white mb-3">Project Managed</h3>
+                      <p className="text-[var(--text-secondary)] text-sm mb-8 leading-relaxed">
+                        This AI workspace is now being managed by the assigned Team Lead.
+                      </p>
+                      <button
+                        onClick={() => navigate(`/projects/${(currentProject as any)?.id || searchParams.get('projectId')}/spreadsheet`)}
+                        className="glass-btn w-full py-4 text-base flex items-center justify-center gap-3 group"
+                      >
+                        <span>View Production Spreadsheet</span>
+                        <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    onClick={() => navigate('/projects')}
+                    className="w-full mt-4 py-2 text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)] hover:text-white transition-colors"
+                  >
+                    Return to Projects List
+                  </button>
+                </motion.div>
+              </div>
+            )}
             {/* Background blobs */}
             <div
               className={`absolute top-[5%] left-[5%] w-100 h-100 rounded-full blur-[100px] pointer-events-none ${isDark ? "bg-zinc-800/20" : "bg-slate-200/40"
@@ -1060,8 +1121,8 @@ export default function ProductionPlanMaker() {
                   onReject={(id) => handleModifyStructure(id)}
                   onDownload={(name, buf) => handleDownload(name, buf)}
                   onViewProject={(id) => {
-                    const path = window.location.pathname.startsWith('/teamlead-dashboard') 
-                      ? `/teamlead-dashboard/projects/${id}/spreadsheet` 
+                    const path = window.location.pathname.startsWith('/teamlead-dashboard')
+                      ? `/teamlead-dashboard/projects/${id}/spreadsheet`
                       : `/projects/${id}/spreadsheet`;
                     navigate(path);
                   }}

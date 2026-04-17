@@ -24,7 +24,7 @@ public class DataSeeder {
         String targetPin = "lifewood@";
 
         // 1. Resolve PIN collisions: If another user already has '123456', change their PIN first
-        userRepository.findByPin(targetPin).ifPresent(otherUser -> {
+        userRepository.findByPinAndStatusNot(targetPin, "deleted").ifPresent(otherUser -> {
             if (!otherUser.getEmail().equals(adminEmail)) {
                 otherUser.setPin("000000"); // Temporarily move the PIN
                 userRepository.save(otherUser);
@@ -32,7 +32,7 @@ public class DataSeeder {
         });
 
         // 2. Seed or Update the new Admin
-        java.util.Optional<com.prodplan.user.model.User> existing = userRepository.findByEmailAndRole(adminEmail, Role.ADMIN);
+        java.util.Optional<com.prodplan.user.model.User> existing = userRepository.findByEmailAndRoleAndStatusNot(adminEmail, Role.ADMIN, "deleted");
         
         if (existing.isEmpty()) {
             com.prodplan.user.model.User admin = new com.prodplan.user.model.User("System Admin", adminEmail, Role.ADMIN, targetPin);

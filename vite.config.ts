@@ -15,7 +15,11 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "."),
+        "pdfjs-dist": path.resolve(__dirname, "node_modules/pdfjs-dist/build/pdf.min.mjs"),
       },
+    },
+    optimizeDeps: {
+      exclude: ["pdfjs-dist"],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

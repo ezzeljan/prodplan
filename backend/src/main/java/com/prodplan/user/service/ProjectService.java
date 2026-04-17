@@ -56,7 +56,7 @@ public class ProjectService {
     }
 
     public List<Project> getAllProjects() {
-        return projectRepository.findAll();
+        return projectRepository.findByStatusNot("deleted");
     }
 
     public Optional<Project> getProjectById(Long id) {
@@ -68,7 +68,7 @@ public class ProjectService {
         User tl = userRepository.findById(teamLeadId)
                 .orElseThrow(() -> new IllegalArgumentException("Team Lead not found"));
         try {
-            return projectRepository.findByTeamLead(tl);
+            return projectRepository.findByTeamLeadAndStatusNot(tl, "deleted");
         } catch (Exception e) {
             // Graceful fallback if schema hasn't fully updated yet
             return List.of();
@@ -78,7 +78,7 @@ public class ProjectService {
     public List<Project> getProjectsByOperator(Long operatorId) {
         User operator = userRepository.findById(operatorId)
                 .orElseThrow(() -> new IllegalArgumentException("Operator not found"));
-        return projectRepository.findByOperatorsContaining(operator);
+        return projectRepository.findByOperatorsContainingAndStatusNot(operator, "deleted");
     }
 
     public Project assignOperator(Long projectId, Long operatorId) {
@@ -131,7 +131,8 @@ public class ProjectService {
     public void deleteProject(Long id) {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
-        projectRepository.delete(project);
+        project.setStatus("deleted");
+        projectRepository.save(project);
     }
 
     public boolean isManagerOfProject(Long userId, Long projectId) {

@@ -2,6 +2,7 @@ export interface Operator {
     id: string;
     name: string;
     email: string;
+    pin?: string;
     pinHash: string;
     createdAt: string;
 }
