@@ -2,7 +2,7 @@
 // Replaces localStorage-based session management.
 // All chat threads and messages are now persisted in the database via the backend API.
 
-const API_URL = 'http://localhost:8080/api';
+const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api`;
 
 export interface DBMessage {
     id: number;
